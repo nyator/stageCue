@@ -1,10 +1,16 @@
 import {
+  methods,
   parseServerMessage,
   PROTOCOL_VERSION,
   type ClientMessage,
   type ClientMessagePayload,
   type ClientRole,
   type EngineStatus,
+  type MethodName,
+  type MethodParams,
+  type MethodResult,
+  type RequestErrorCode,
+  type ServerMessagePayload,
 } from '@stagecue/event-protocol'
 
 export type EngineConnectionState =
@@ -18,18 +24,42 @@ export interface ClientIdentity {
   name: string
 }
 
+export type EngineRequestErrorCode = RequestErrorCode | 'offline' | 'timeout' | 'invalid_response'
+
+/** A failed request. The message is written for the person using the app. */
+export class EngineRequestError extends Error {
+  readonly code: EngineRequestErrorCode
+
+  constructor(code: EngineRequestErrorCode, message: string) {
+    super(message)
+    this.name = 'EngineRequestError'
+    this.code = code
+  }
+}
+
+interface PendingRequest {
+  method: MethodName
+  resolve: (result: unknown) => void
+  reject: (error: EngineRequestError) => void
+  timer: ReturnType<typeof setTimeout>
+}
+
 const RETRY_BASE_MS = 500
 const RETRY_MAX_MS = 5_000
+const REQUEST_TIMEOUT_MS = 10_000
 
 /**
  * Owns the WebSocket to the engine: handshake, validation, stale-message
- * rejection, and reconnection with capped backoff. UI code only reads state.
+ * rejection, requests, and reconnection with capped backoff. UI code only
+ * reads state and calls request().
  */
 export class EngineConnection {
-  readonly url: string
+  #url: string
   readonly #identity: ClientIdentity
   #state: EngineConnectionState = { phase: 'connecting' }
   #listeners = new Set<() => void>()
+  #libraryListeners = new Set<(method: string) => void>()
+  #pending = new Map<string, PendingRequest>()
   #socket: WebSocket | null = null
   #retryTimer: ReturnType<typeof setTimeout> | null = null
   #failedAttempts = 0
@@ -38,8 +68,12 @@ export class EngineConnection {
   #running = false
 
   constructor(url: string, identity: ClientIdentity) {
-    this.url = url
+    this.#url = url
     this.#identity = identity
+  }
+
+  get url(): string {
+    return this.#url
   }
 
   start(): void {
@@ -56,8 +90,19 @@ export class EngineConnection {
       clearTimeout(this.#retryTimer)
       this.#retryTimer = null
     }
-    this.#socket?.close(1000, 'Client stopped')
+    const socket = this.#socket
     this.#socket = null
+    socket?.close(1000, 'Client stopped')
+    this.#failPending('offline', 'The connection to the engine was closed.')
+  }
+
+  /** Switches to a different engine address and reconnects. */
+  setUrl(url: string): void {
+    this.stop()
+    this.#url = url
+    this.#failedAttempts = 0
+    this.#setState({ phase: 'connecting' })
+    this.start()
   }
 
   subscribe = (listener: () => void): (() => void) => {
@@ -66,6 +111,36 @@ export class EngineConnection {
   }
 
   getState = (): EngineConnectionState => this.#state
+
+  /** Called after any client changes library data. */
+  onLibraryChanged(listener: (method: string) => void): () => void {
+    this.#libraryListeners.add(listener)
+    return () => this.#libraryListeners.delete(listener)
+  }
+
+  request<M extends MethodName>(method: M, params: MethodParams<M>): Promise<MethodResult<M>> {
+    if (this.#state.phase !== 'connected' || this.#socket?.readyState !== WebSocket.OPEN) {
+      return Promise.reject(
+        new EngineRequestError('offline', 'StageCue is not connected to the engine.'),
+      )
+    }
+
+    const requestId = crypto.randomUUID()
+    return new Promise<MethodResult<M>>((resolve, reject) => {
+      const timer = setTimeout(() => {
+        this.#pending.delete(requestId)
+        reject(new EngineRequestError('timeout', 'The engine did not answer in time.'))
+      }, REQUEST_TIMEOUT_MS)
+
+      this.#pending.set(requestId, {
+        method,
+        resolve: resolve as (result: unknown) => void,
+        reject,
+        timer,
+      })
+      this.#send('request', { requestId, method, params })
+    })
+  }
 
   #setState(state: EngineConnectionState): void {
     this.#state = state
@@ -81,9 +156,9 @@ export class EngineConnection {
 
     let socket: WebSocket
     try {
-      socket = new WebSocket(this.url)
+      socket = new WebSocket(this.#url)
     } catch (error) {
-      console.error('[engine] Invalid engine URL', this.url, error)
+      console.error('[engine] Invalid engine URL', this.#url, error)
       this.#scheduleReconnect()
       return
     }
@@ -106,6 +181,7 @@ export class EngineConnection {
         return
       }
       this.#socket = null
+      this.#failPending('offline', 'The connection to the engine was lost.')
       this.#scheduleReconnect()
     })
   }
@@ -150,10 +226,50 @@ export class EngineConnection {
       case 'engine.status':
         this.#setState({ phase: 'connected', status: message.payload })
         break
+      case 'response':
+        this.#handleResponse(message.payload)
+        break
+      case 'library.changed':
+        for (const listener of this.#libraryListeners) {
+          listener(message.payload.method)
+        }
+        break
       case 'error':
         console.warn('[engine] Engine rejected a message', message.payload)
         break
     }
+  }
+
+  #handleResponse(payload: ServerMessagePayload<'response'>): void {
+    const pending = this.#pending.get(payload.requestId)
+    if (!pending) {
+      return
+    }
+    this.#pending.delete(payload.requestId)
+    clearTimeout(pending.timer)
+
+    if (!payload.ok) {
+      pending.reject(new EngineRequestError(payload.error.code, payload.error.message))
+      return
+    }
+
+    const parsed = methods[pending.method].result.safeParse(payload.result)
+    if (!parsed.success) {
+      console.error('[engine] Invalid result', pending.method, parsed.error)
+      pending.reject(
+        new EngineRequestError('invalid_response', 'The engine sent data this app cannot read.'),
+      )
+      return
+    }
+    pending.resolve(parsed.data)
+  }
+
+  #failPending(code: EngineRequestErrorCode, message: string): void {
+    for (const pending of this.#pending.values()) {
+      clearTimeout(pending.timer)
+      pending.reject(new EngineRequestError(code, message))
+    }
+    this.#pending.clear()
   }
 
   #scheduleReconnect(): void {

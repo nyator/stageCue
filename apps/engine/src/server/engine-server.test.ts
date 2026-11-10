@@ -187,6 +187,65 @@ describe('engine server', () => {
     expect(await client.closed).toBe(1006)
   })
 
+  it('answers requests and tells every client when the library changes', async () => {
+    const dispatch = vi.fn((method: string) =>
+      method === 'setlists.create'
+        ? ({ ok: true, result: { created: true }, mutated: true } as const)
+        : ({ ok: false, code: 'not_found', message: 'Gone.' } as const),
+    )
+    const engine = await start({ dispatch })
+    const director = await connect(engine)
+    const operator = await connect(engine)
+    director.hello(1, 'Director')
+    await director.next() // welcome
+    await director.next() // status
+    operator.hello(1, 'Operator')
+    await operator.next() // welcome
+    await operator.next() // status
+    await director.next() // status after operator joined
+
+    const request = (seq: number, requestId: string, method: string) =>
+      director.send({
+        v: PROTOCOL_VERSION,
+        type: 'request',
+        seq,
+        sentAt: Date.now(),
+        payload: { requestId, method, params: {} },
+      })
+
+    request(2, 'a', 'songs.get')
+    expect(await director.next()).toMatchObject({
+      type: 'response',
+      payload: { requestId: 'a', ok: false, error: { code: 'not_found' } },
+    })
+
+    request(3, 'b', 'setlists.create')
+    expect(await director.next()).toMatchObject({
+      type: 'response',
+      payload: { requestId: 'b', ok: true, result: { created: true } },
+    })
+    expect(await director.next()).toMatchObject({ type: 'library.changed' })
+    expect(await operator.next()).toMatchObject({
+      type: 'library.changed',
+      payload: { method: 'setlists.create' },
+    })
+  })
+
+  it('refuses requests before hello', async () => {
+    const client = await connect(await start())
+    client.send({
+      v: PROTOCOL_VERSION,
+      type: 'request',
+      seq: 1,
+      sentAt: Date.now(),
+      payload: { requestId: 'x', method: 'songs.list', params: {} },
+    })
+    expect(await client.next()).toMatchObject({
+      type: 'response',
+      payload: { ok: false, error: { code: 'handshake_required' } },
+    })
+  })
+
   it('reports a clear error when the port is taken', async () => {
     const engine = await start()
     await expect(

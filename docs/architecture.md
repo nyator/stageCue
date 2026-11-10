@@ -35,8 +35,11 @@ SQLite through Node's built-in `node:sqlite`. It needs no native module, so noth
 
 - The main process creates one window with context isolation on, Node integration off, and a sandboxed preload. It blocks navigation away from the app, denies new windows (opening `https` links in the system browser instead), and denies every permission request.
 - The preload is built as CommonJS (`out/preload/index.cjs`), as sandboxed preloads require. It exposes only a read-only `window.stagecue` object.
-- The renderer talks to the engine directly over WebSocket. `src/renderer/src/engine/engine-connection.ts` owns that socket, the handshake, message validation, and reconnection with backoff. React components only read its state.
-- The Content Security Policy in `index.html` limits network access to the engine and the Vite dev server.
+- The renderer talks to the engine directly over WebSocket. `src/renderer/src/engine/engine-connection.ts` owns that socket, the handshake, message validation, requests, and reconnection with backoff. `engine/hooks.ts` wraps it for React: `useEngineQuery` loads data and reloads it whenever any client changes the library, and `useAction` tracks one user action.
+- Editing rules live outside components. `features/songs/drafts.ts` holds the section and arrangement editing logic as pure, tested functions; components render it.
+- Screens are under `features/`, shared controls under `ui/`. Navigation is a small store in `navigation/router.ts` that also asks before leaving a screen with unsaved changes.
+- The main process passes the computer name to the preload, so each desktop identifies itself to the engine by machine name.
+- The Content Security Policy in `index.html` allows WebSocket connections to any host, so the app can reach an engine on another computer, and blocks every other network access outside the app.
 
 ## Packages
 
@@ -44,7 +47,7 @@ SQLite through Node's built-in `node:sqlite`. It needs no native module, so noth
 
 `packages/shared-types` holds types shared between Electron processes, such as the preload bridge.
 
-`packages/arrangement` will hold the section-tracking logic in Phase 3, kept as pure functions so it can be tested without a DAW.
+`packages/arrangement` is the domain model: songs, sections, arrangements, setlists, display settings, their validation schemas, bar layout, and the display cue logic (current section, next section, repeat pass). It is pure TypeScript, so the engine, the desktop app, and later the integrations share one definition. Phase 3 adds playback tracking here.
 
 ## Integrations
 

@@ -28,6 +28,10 @@ setlists ── performances ── performance_sections   a frozen copy, used l
 - `vocal_parts` must be a JSON array. The application validates its values: `lead`, `soprano`, `alto`, `tenor`, `bass`, `full_choir`, and `instrumental`.
 - `service_date` must be a valid `YYYY-MM-DD` date.
 
+## Settings
+
+The `settings` table (migration 2) stores engine-wide preferences as JSON by key. `display` holds the choir display style. Stored values are merged over the defaults, so settings added in later versions get sensible values.
+
 ## Conventions
 
 - IDs are application-generated UUID strings. The exception is `performance_events.id`, an auto-increment integer, so events have a total order.

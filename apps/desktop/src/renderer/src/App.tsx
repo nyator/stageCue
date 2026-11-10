@@ -1,72 +1,146 @@
+import {
+  ListNumbers,
+  MonitorPlay,
+  MusicNotesSimple,
+  PlugsConnected,
+  SquaresFour,
+  type Icon,
+} from '@phosphor-icons/react'
 import { STAGECUE_APP_NAME } from '@stagecue/shared-types'
-import { engine, useEngineState, type EngineConnectionState } from './engine'
+import { useEngineState } from './engine'
+import { ConnectionPage } from './features/connection/ConnectionPage'
+import { DashboardPage } from './features/dashboard/DashboardPage'
+import { DisplayPage } from './features/display/DisplayPage'
+import { SetlistsPage } from './features/setlists/SetlistsPage'
+import { SongPage } from './features/songs/SongPage'
+import { SongsPage } from './features/songs/SongsPage'
+import { navigate, useRoute, type Route } from './navigation/router'
+
+interface NavItem {
+  label: string
+  icon: Icon
+  route: Route
+  matches: Route['name'][]
+}
+
+const NAV: NavItem[] = [
+  { label: 'Dashboard', icon: SquaresFour, route: { name: 'dashboard' }, matches: ['dashboard'] },
+  { label: 'Songs', icon: MusicNotesSimple, route: { name: 'songs' }, matches: ['songs', 'song'] },
+  {
+    label: 'Setlists',
+    icon: ListNumbers,
+    route: { name: 'setlists', setlistId: null },
+    matches: ['setlists'],
+  },
+  {
+    label: 'Display',
+    icon: MonitorPlay,
+    route: { name: 'display', setlistId: null, performanceId: null },
+    matches: ['display'],
+  },
+  {
+    label: 'Connection',
+    icon: PlugsConnected,
+    route: { name: 'connection' },
+    matches: ['connection'],
+  },
+]
 
 export function App() {
-  const electronVersion = window.stagecue?.versions.electron
+  const route = useRoute()
 
   return (
-    <main className="flex h-full min-h-screen flex-col overflow-hidden bg-booth text-ink">
-      <div className="h-px bg-cue" aria-hidden="true" />
-      <div className="enter flex flex-1 flex-col justify-between px-10 py-10 sm:px-16 sm:py-14">
-        <p className="font-mono text-sm text-muted">Desktop</p>
-        <div>
+    <div className="grid h-dvh grid-cols-[13.5rem_minmax(0,1fr)] bg-booth text-ink">
+      <aside className="flex min-h-0 flex-col border-r border-line-soft bg-panel">
+        <div className="flex items-center gap-2.5 px-5 pt-5 pb-6">
           <CueMark />
-          <h1 className="mt-6 text-balance text-6xl font-semibold leading-[1.05] tracking-[-0.03em] sm:text-7xl">
-            {STAGECUE_APP_NAME}
-          </h1>
-          <p className="mt-5 max-w-[38ch] text-pretty text-lg leading-[1.55] text-muted">
-            Welcome. The application is running.
-          </p>
+          <span className="text-[15px] font-semibold tracking-[-0.01em]">{STAGECUE_APP_NAME}</span>
         </div>
-        <footer className="flex flex-wrap items-center justify-between gap-x-8 gap-y-2 font-mono text-sm text-muted">
-          <EngineStatusLine />
-          {electronVersion ? <span>Electron {electronVersion}</span> : null}
-        </footer>
-      </div>
-    </main>
+        <nav aria-label="Main" className="flex flex-col gap-0.5 px-3">
+          {NAV.map((item) => {
+            const active = item.matches.includes(route.name)
+            const IconComponent = item.icon
+            return (
+              <button
+                key={item.label}
+                type="button"
+                aria-current={active ? 'page' : undefined}
+                onClick={() => navigate(item.route)}
+                className={`flex h-9 items-center gap-3 rounded-md px-3 text-sm font-medium transition-colors duration-150 ${
+                  active ? 'bg-raised text-ink' : 'text-muted hover:bg-raised/60 hover:text-ink'
+                }`}
+              >
+                <IconComponent
+                  className={`size-[18px] ${active ? 'text-cue' : ''}`}
+                  weight={active ? 'fill' : 'regular'}
+                  aria-hidden
+                />
+                {item.label}
+              </button>
+            )
+          })}
+        </nav>
+        <div className="mt-auto px-5 py-4">
+          <EngineIndicator />
+        </div>
+      </aside>
+
+      <main className="min-h-0 overflow-y-auto">
+        <Screen route={route} />
+      </main>
+    </div>
   )
 }
 
-const engineHost = new URL(engine.url).host
-
-const indicator: Record<EngineConnectionState['phase'], string> = {
-  connected: 'tally bg-cue',
-  connecting: 'bg-warn',
-  offline: 'bg-alert',
+function Screen({ route }: { route: Route }) {
+  switch (route.name) {
+    case 'dashboard':
+      return <DashboardPage />
+    case 'songs':
+      return <SongsPage />
+    case 'song':
+      return <SongPage key={route.songId} route={route} />
+    case 'setlists':
+      return <SetlistsPage setlistId={route.setlistId} />
+    case 'display':
+      return <DisplayPage setlistId={route.setlistId} performanceId={route.performanceId} />
+    case 'connection':
+      return <ConnectionPage />
+  }
 }
 
-function EngineStatusLine() {
+function EngineIndicator() {
   const state = useEngineState()
-
-  let label: string
-  let detail: string
-  switch (state.phase) {
-    case 'connected':
-      label = 'Engine connected'
-      detail = `${engineHost} · protocol v${state.status.protocolVersion} · database v${state.status.schemaVersion}`
-      break
-    case 'connecting':
-      label = 'Connecting to engine'
-      detail = engineHost
-      break
-    case 'offline':
-      label = 'Engine offline'
-      detail = `${engineHost} · retrying`
-      break
-  }
+  const label =
+    state.phase === 'connected'
+      ? 'Engine connected'
+      : state.phase === 'connecting'
+        ? 'Connecting to engine'
+        : 'Engine offline'
+  const tone =
+    state.phase === 'connected'
+      ? 'tally bg-cue'
+      : state.phase === 'connecting'
+        ? 'bg-warn'
+        : 'bg-alert'
 
   return (
-    <p className="flex items-center gap-3" role="status" aria-live="polite">
-      <span className={`size-2 shrink-0 ${indicator[state.phase]}`} aria-hidden="true" />
-      <span className="text-ink">{label}</span>
-      <span>{detail}</span>
-    </p>
+    <button
+      type="button"
+      onClick={() => navigate({ name: 'connection' })}
+      className="flex items-center gap-2.5 text-[13px] text-muted transition-colors hover:text-ink"
+      role="status"
+      aria-live="polite"
+    >
+      <span className={`size-2 rounded-full ${tone}`} aria-hidden />
+      {label}
+    </button>
   )
 }
 
 function CueMark() {
   return (
-    <svg width="40" height="28" viewBox="0 0 40 28" aria-hidden="true">
+    <svg width="20" height="14" viewBox="0 0 40 28" aria-hidden="true">
       <rect width="40" height="4" className="fill-cue" />
       <rect y="12" width="28" height="4" className="fill-line" />
       <rect y="24" width="18" height="4" className="fill-line" />

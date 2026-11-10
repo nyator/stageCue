@@ -1,19 +1,58 @@
 @import 'tailwindcss';
 
+/*
+ * Dark only, by design: StageCue runs in dim sanctuary booths during services,
+ * where a bright screen distracts the room and the operator.
+ */
 @theme {
   --font-sans: 'Geist Variable', 'Segoe UI', sans-serif;
   --font-mono: 'Geist Mono Variable', 'Cascadia Mono', ui-monospace, monospace;
+
+  /* Surfaces, darkest to lightest. */
+  --color-booth: oklch(0.17 0.012 165);
+  --color-panel: oklch(0.195 0.012 165);
+  --color-raised: oklch(0.235 0.013 165);
+  --color-hover: oklch(0.265 0.014 165);
+  --color-line-soft: oklch(0.27 0.014 165);
+  --color-line: oklch(0.34 0.02 165);
+
+  /* Text, strongest to weakest. All pass 4.5:1 on booth and panel. */
   --color-ink: oklch(0.95 0.01 165);
   --color-muted: oklch(0.78 0.018 165);
-  --color-booth: oklch(0.17 0.012 165);
-  --color-line: oklch(0.34 0.02 165);
+  --color-faint: oklch(0.66 0.016 165);
+
+  /* One accent, for primary actions, selection, and live state. */
   --color-cue: oklch(0.8 0.14 158);
+  --color-cue-strong: oklch(0.86 0.13 158);
+  --color-cue-ink: oklch(0.2 0.04 160);
+  --color-cue-wash: oklch(0.8 0.14 158 / 0.12);
+
+  /* Status. */
   --color-warn: oklch(0.83 0.13 80);
-  --color-alert: oklch(0.7 0.17 28);
+  --color-alert: oklch(0.72 0.16 28);
+  --color-alert-wash: oklch(0.72 0.16 28 / 0.12);
+
+  /* Section types: one hue each, equal lightness so none shouts. */
+  --color-type-intro: oklch(0.7 0.05 250);
+  --color-type-verse: oklch(0.72 0.11 245);
+  --color-type-pre_chorus: oklch(0.74 0.1 205);
+  --color-type-chorus: oklch(0.8 0.12 85);
+  --color-type-bridge: oklch(0.72 0.12 300);
+  --color-type-instrumental: oklch(0.68 0.02 165);
+  --color-type-vamp: oklch(0.74 0.13 50);
+  --color-type-tag: oklch(0.74 0.12 350);
+  --color-type-interlude: oklch(0.74 0.09 175);
+  --color-type-ending: oklch(0.7 0.14 25);
+  --color-type-other: oklch(0.66 0.01 165);
+
+  --ease-out-strong: cubic-bezier(0.23, 1, 0.32, 1);
+
+  /* Layers. Nothing else sets z-index. */
+  --z-sticky: 10;
+  --z-overlay: 20;
 }
 
 :root {
-  --ease-out-strong: cubic-bezier(0.23, 1, 0.32, 1);
   color-scheme: dark;
 }
 
@@ -28,6 +67,8 @@ body {
   background: var(--color-booth);
   color: var(--color-ink);
   font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.5;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
 }
@@ -39,43 +80,53 @@ body {
 
 :focus-visible {
   outline: 2px solid var(--color-cue);
-  outline-offset: 3px;
+  outline-offset: 2px;
+}
+
+input[type='number'] {
+  font-variant-numeric: tabular-nums;
+}
+
+dialog::backdrop {
+  background: oklch(0.1 0.01 165 / 0.7);
+}
+
+dialog[open] {
+  animation: dialog-in 180ms var(--ease-out-strong);
+}
+
+@keyframes dialog-in {
+  from {
+    opacity: 0;
+    transform: scale(0.97);
+  }
 }
 
 @keyframes enter {
   from {
     opacity: 0;
-    transform: translateY(8px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0);
+    transform: translateY(6px);
   }
 }
 
 @keyframes tally {
-  0%,
-  100% {
-    opacity: 1;
-  }
-
   50% {
     opacity: 0.4;
   }
 }
 
 .enter {
-  animation: enter 280ms var(--ease-out-strong) both;
+  animation: enter 220ms var(--ease-out-strong) both;
 }
 
 .tally {
-  animation: tally 2.4s var(--ease-out-strong) infinite;
+  animation: tally 2.4s ease-in-out infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {
   .enter,
-  .tally {
+  .tally,
+  dialog[open] {
     animation: none;
   }
 }

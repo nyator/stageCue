@@ -1,4 +1,8 @@
 import { z } from 'zod'
+import { METHOD_NAMES, requestErrorCodeSchema } from './methods.ts'
+import { clientRoleSchema } from './roles.ts'
+
+export { clientRoleSchema, type ClientRole } from './roles.ts'
 
 /** Bumped on any breaking change to the wire format. Peers with a different version are refused. */
 export const PROTOCOL_VERSION = 1
@@ -18,9 +22,6 @@ export const CloseCode = {
 /** Unix epoch milliseconds. */
 const timestamp = z.int().nonnegative()
 const sequence = z.int().nonnegative()
-
-export const clientRoleSchema = z.enum(['desktop', 'display', 'daw_bridge'])
-export type ClientRole = z.infer<typeof clientRoleSchema>
 
 export const errorCodeSchema = z.enum([
   'invalid_json',
@@ -105,11 +106,46 @@ export const errorMessageSchema = serverMessage(
   }),
 )
 
-export const clientMessageSchema = z.discriminatedUnion('type', [helloMessageSchema])
+/** Params are validated per method by the engine, so a bad request gets a response, not a generic error. */
+export const requestMessageSchema = clientMessage(
+  'request',
+  z.strictObject({
+    requestId: z.string().min(1).max(64),
+    method: z.enum(METHOD_NAMES),
+    params: z.unknown(),
+  }),
+)
+
+const requestId = z.string().min(1).max(64)
+
+export const responseMessageSchema = serverMessage(
+  'response',
+  z.discriminatedUnion('ok', [
+    z.object({ requestId, ok: z.literal(true), result: z.unknown() }),
+    z.object({
+      requestId,
+      ok: z.literal(false),
+      error: z.object({ code: requestErrorCodeSchema, message: z.string() }),
+    }),
+  ]),
+)
+
+/** Sent to every identified client after any successful mutation, so open views can refresh. */
+export const libraryChangedMessageSchema = serverMessage(
+  'library.changed',
+  z.object({ method: z.string() }),
+)
+
+export const clientMessageSchema = z.discriminatedUnion('type', [
+  helloMessageSchema,
+  requestMessageSchema,
+])
 export const serverMessageSchema = z.discriminatedUnion('type', [
   welcomeMessageSchema,
   engineStatusMessageSchema,
   errorMessageSchema,
+  responseMessageSchema,
+  libraryChangedMessageSchema,
 ])
 
 export type ClientMessage = z.infer<typeof clientMessageSchema>

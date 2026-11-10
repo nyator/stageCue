@@ -83,6 +83,55 @@ Sending a second `hello` on the same connection is an `invalid_message` error.
 | `stale_message`       | `seq` is not newer than the last accepted one                    |
 | `internal_error`      | The engine failed while handling the message                     |
 
+### `request` (client → engine)
+
+| Field       | Type                    | Notes                                     |
+| ----------- | ----------------------- | ----------------------------------------- |
+| `requestId` | string, 1–64 characters | Chosen by the client, echoed in the reply |
+| `method`    | a method name           | See the table below                       |
+| `params`    | object                  | Validated against the method's schema     |
+
+The engine answers every request with exactly one `response`. Requests fail with `handshake_required` until the connection has said `hello`.
+
+### `response` (engine → client)
+
+Either `{ requestId, ok: true, result }` or `{ requestId, ok: false, error: { code, message } }`. The message is written for people and can be shown as is. Clients validate `result` against the method's result schema before using it.
+
+| Code                 | When                                                             |
+| -------------------- | ---------------------------------------------------------------- |
+| `handshake_required` | The connection has not said `hello`                              |
+| `invalid_params`     | The params do not match the method's schema                      |
+| `not_found`          | The song, arrangement, setlist, or performance does not exist    |
+| `conflict`           | The change would break something, such as deleting a song in use |
+| `internal_error`     | Anything unexpected. Details go to the engine log only.          |
+
+### `library.changed` (engine → client)
+
+`{ method }`, sent to every identified client after any successful change, including the client that made it. Clients reload what they show.
+
+### Methods
+
+The schemas for each method's params and result are in `packages/event-protocol/src/methods.ts`.
+
+| Method                                                  | Changes data | Purpose                                                         |
+| ------------------------------------------------------- | ------------ | --------------------------------------------------------------- |
+| `songs.list`                                            | no           | Every song with section and arrangement counts                  |
+| `songs.get`                                             | no           | One song with its sections and arrangements                     |
+| `songs.create`, `songs.update`                          | yes          | Title, writer, key, tempo, time signature                       |
+| `songs.delete`                                          | yes          | Refused while the song is in a setlist                          |
+| `sections.save`                                         | yes          | Replaces a song's ordered sections; refuses to drop one in use  |
+| `arrangements.create`                                   | yes          | Starts from song order or copies another arrangement            |
+| `arrangements.save`                                     | yes          | Name, tempo, key, start bar, ordered entries; bars are computed |
+| `arrangements.delete`                                   | yes          | Setlists keep their copies                                      |
+| `setlists.list`, `setlists.get`                         | no           | Summaries, or one setlist with its performances                 |
+| `setlists.create`, `setlists.update`, `setlists.delete` | yes          | Name, service date, notes                                       |
+| `performances.add`                                      | yes          | Adds a song with an arrangement, copying its sections           |
+| `performances.remove`, `performances.move`              | yes          | Running order                                                   |
+| `performances.setArrangement`                           | yes          | Copies sections again; only while the performance is planned    |
+| `settings.getDisplay`                                   | no           | Choir display style                                             |
+| `settings.saveDisplay`                                  | yes          | Choir display style                                             |
+| `devices.list`                                          | no           | Every computer that has connected                               |
+
 ## Close codes
 
 | Code   | Meaning                                 |

@@ -3,8 +3,9 @@ import { mkdirSync } from 'node:fs'
 import path from 'node:path'
 import { loadConfig } from './config.ts'
 import { migrate, openDatabase } from './db/database.ts'
-import { recordDeviceSeen } from './db/devices.ts'
+import { recordDeviceSeen } from './repositories/devices.ts'
 import { createLogger } from './logger.ts'
+import { createDispatcher } from './rpc/dispatcher.ts'
 import { startEngineServer, type EngineServer } from './server/engine-server.ts'
 
 async function main(): Promise<void> {
@@ -26,6 +27,7 @@ async function main(): Promise<void> {
       instanceId: randomUUID(),
       startedAt: Date.now(),
       schemaVersion,
+      dispatch: createDispatcher(db, logger.child('rpc')),
       onClientIdentified: (client) => {
         recordDeviceSeen(db, {
           id: client.clientId,

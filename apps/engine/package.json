@@ -7,9 +7,11 @@
   "scripts": {
     "dev": "node --watch src/index.ts",
     "start": "node src/index.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "seed": "node src/seed.ts"
   },
   "dependencies": {
+    "@stagecue/arrangement": "workspace:*",
     "@stagecue/event-protocol": "workspace:*",
     "@stagecue/shared-types": "workspace:*",
     "ws": "^8.22.2",

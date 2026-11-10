@@ -1,7 +1,7 @@
 import type { DatabaseSync } from 'node:sqlite'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { getSchemaVersion, migrate, openDatabase } from './database.ts'
-import { recordDeviceSeen } from './devices.ts'
+import { recordDeviceSeen } from '../repositories/devices.ts'
 import { migrations } from './migrations/index.ts'
 
 const now = '2026-11-10T12:00:00.000Z'

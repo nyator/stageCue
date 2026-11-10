@@ -14,6 +14,7 @@ import {
 } from '@stagecue/event-protocol'
 import { WebSocket, WebSocketServer, type RawData } from 'ws'
 import type { Logger } from '../logger.ts'
+import type { Dispatcher } from '../rpc/dispatcher.ts'
 
 export interface ClientIdentified extends ConnectedClient {
   address: string | null
@@ -28,6 +29,8 @@ export interface EngineServerOptions {
   schemaVersion: number
   /** Called once per connection after a valid hello. Errors are logged, not propagated. */
   onClientIdentified?: (client: ClientIdentified) => void
+  /** Handles request messages. Without one, every request fails with internal_error. */
+  dispatch?: Dispatcher
   heartbeatIntervalMs?: number
   handshakeTimeoutMs?: number
 }
@@ -173,6 +176,43 @@ export async function startEngineServer(options: EngineServerOptions): Promise<E
     broadcastStatus()
   }
 
+  function handleRequest(connection: Connection, payload: ClientMessagePayload<'request'>): void {
+    const { requestId, method } = payload
+
+    if (!connection.client) {
+      send(connection, 'response', {
+        requestId,
+        ok: false,
+        error: { code: 'handshake_required', message: 'Say hello before making requests.' },
+      })
+      return
+    }
+
+    const outcome = options.dispatch
+      ? options.dispatch(method, payload.params)
+      : ({ ok: false, code: 'internal_error', message: 'Requests are not available.' } as const)
+
+    if (!outcome.ok) {
+      logger.debug('Request rejected', { method, code: outcome.code, message: outcome.message })
+      send(connection, 'response', {
+        requestId,
+        ok: false,
+        error: { code: outcome.code, message: outcome.message },
+      })
+      return
+    }
+
+    send(connection, 'response', { requestId, ok: true, result: outcome.result })
+    if (outcome.mutated) {
+      logger.info('Library changed', { method, clientId: connection.client.clientId })
+      for (const other of connections) {
+        if (other.client) {
+          send(other, 'library.changed', { method })
+        }
+      }
+    }
+  }
+
   function handleMessage(connection: Connection, data: RawData, isBinary: boolean): void {
     if (isBinary) {
       sendError(connection, 'invalid_message', 'Binary frames are not supported.', null)
@@ -203,6 +243,9 @@ export async function startEngineServer(options: EngineServerOptions): Promise<E
     switch (message.type) {
       case 'hello':
         handleHello(connection, message.payload)
+        break
+      case 'request':
+        handleRequest(connection, message.payload)
         break
     }
   }

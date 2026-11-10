@@ -2,7 +2,7 @@
 
 StageCue follows the arrangement of a song as it plays in Ableton Live or Logic Pro and shows the choir the current section, the next section, and their instructions on the same screen as the lyrics in ProPresenter.
 
-**Status: Phase 1 (foundation).** The desktop app, the engine, the WebSocket link between them, and the SQLite database work. Song editing, the arrangement engine, and the DAW and ProPresenter integrations are later phases.
+**Status: Phase 2 (application interface).** You can build a song library, define sections, arrange them, plan setlists, and preview the choir display. StageCue does not yet follow a DAW or send anything to ProPresenter; those are Phases 3 to 6.
 
 ## Requirements
 
@@ -15,13 +15,23 @@ StageCue follows the arrangement of a song as it plays in Ableton Live or Logic 
 pnpm install
 ```
 
+## Sample data
+
+To try StageCue with a library of public-domain hymns and four setlists:
+
+```sh
+pnpm seed
+```
+
+It only adds data to an empty library, so it never mixes with your own songs. To start over, stop the engine, delete `apps/engine/.data`, and run it again.
+
 ## Run
 
 ```sh
 pnpm dev
 ```
 
-This starts the engine and the desktop app together. The engine restarts when its files change and the desktop app hot-reloads. The desktop footer shows whether it is connected to the engine. Press Ctrl+C to stop both.
+This starts the engine and the desktop app together. The engine restarts when its files change and the desktop app hot-reloads. The sidebar shows whether the app is connected to the engine. Press Ctrl+C to stop both.
 
 To run them separately, use `pnpm dev:engine` and `pnpm dev:desktop`.
 
@@ -53,6 +63,7 @@ The engine reads these environment variables. All are optional.
 | `pnpm dev:desktop`  | Runs only the desktop app                                    |
 | `pnpm dev:engine`   | Runs only the engine, restarting on change                   |
 | `pnpm start:engine` | Runs the engine once                                         |
+| `pnpm seed`         | Adds the sample library to an empty database                 |
 | `pnpm build`        | Builds the desktop app into `apps/desktop/out`               |
 | `pnpm test`         | Runs the test suite once (`pnpm test:watch` to keep it open) |
 | `pnpm typecheck`    | Type-checks every workspace                                  |

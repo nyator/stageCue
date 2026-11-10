@@ -1,5 +1,6 @@
 import type { DatabaseSync } from 'node:sqlite'
-import type { ClientRole } from '@stagecue/event-protocol'
+import type { ClientRole, Device } from '@stagecue/event-protocol'
+import { text, textOrNull } from './support.ts'
 
 export interface DeviceSighting {
   id: string
@@ -22,4 +23,18 @@ export function recordDeviceSeen(db: DatabaseSync, sighting: DeviceSighting): vo
        last_address = excluded.last_address,
        last_seen_at = excluded.last_seen_at`,
   ).run(sighting.id, sighting.name, sighting.role, sighting.address, seenAt, seenAt)
+}
+
+export function listDevices(db: DatabaseSync): Device[] {
+  return db
+    .prepare('SELECT * FROM devices ORDER BY last_seen_at DESC')
+    .all()
+    .map((row) => ({
+      id: text(row.id),
+      name: text(row.name),
+      role: text(row.role) as Device['role'],
+      lastAddress: textOrNull(row.last_address),
+      firstSeenAt: text(row.first_seen_at),
+      lastSeenAt: text(row.last_seen_at),
+    }))
 }

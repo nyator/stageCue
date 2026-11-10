@@ -26,7 +26,9 @@ describe('parseClientMessage', () => {
 
   it('trims the client name', () => {
     const result = parseClientMessage(hello({}, { name: '  Booth  ' }))
-    expect(result.ok && result.message.payload.name).toBe('Booth')
+    expect(result.ok && result.message.type === 'hello' && result.message.payload.name).toBe(
+      'Booth',
+    )
   })
 
   it('rejects text that is not JSON', () => {
@@ -55,6 +57,31 @@ describe('parseClientMessage', () => {
     ['JSON null', 'null'],
   ])('rejects %s', (_label, raw) => {
     expect(parseClientMessage(raw)).toMatchObject({ ok: false, code: 'invalid_message' })
+  })
+})
+
+describe('request messages', () => {
+  const request = (method: string) =>
+    JSON.stringify({
+      v: PROTOCOL_VERSION,
+      type: 'request',
+      seq: 2,
+      sentAt: 1_700_000_000_000,
+      payload: { requestId: 'r1', method, params: { anything: true } },
+    })
+
+  it('accepts known methods and leaves params for the method schema', () => {
+    expect(parseClientMessage(request('songs.list'))).toMatchObject({
+      ok: true,
+      message: { payload: { method: 'songs.list', params: { anything: true } } },
+    })
+  })
+
+  it('rejects unknown methods', () => {
+    expect(parseClientMessage(request('songs.dropTable'))).toMatchObject({
+      ok: false,
+      code: 'invalid_message',
+    })
   })
 })
 

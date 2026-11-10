@@ -14,6 +14,7 @@
     "dev:desktop": "pnpm --filter @stagecue/desktop dev",
     "dev:engine": "pnpm --filter @stagecue/engine dev",
     "start:engine": "pnpm --filter @stagecue/engine start",
+    "seed": "pnpm --filter @stagecue/engine seed",
     "build": "pnpm --filter @stagecue/desktop build",
     "test": "vitest run",
     "test:watch": "vitest",

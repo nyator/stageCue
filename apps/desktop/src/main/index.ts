@@ -1,4 +1,5 @@
 import { app, BrowserWindow, session, shell } from 'electron'
+import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -15,10 +16,10 @@ function isAllowedNavigation(url: string): boolean {
 
 function createWindow(): void {
   const window = new BrowserWindow({
-    width: 1080,
-    height: 720,
-    minWidth: 800,
-    minHeight: 560,
+    width: 1280,
+    height: 820,
+    minWidth: 1024,
+    minHeight: 640,
     show: false,
     autoHideMenuBar: true,
     backgroundColor: '#121916',
@@ -29,6 +30,8 @@ function createWindow(): void {
       nodeIntegration: false,
       sandbox: true,
       webSecurity: true,
+      // Sandboxed preloads cannot read the OS, so pass what they need as arguments.
+      additionalArguments: [`--stagecue-device-name=${os.hostname()}`],
     },
   })
 
