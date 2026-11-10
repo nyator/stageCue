@@ -38,7 +38,7 @@ interface TestClient {
   socket: WebSocket
   next(): Promise<ServerMessage>
   send(value: unknown): void
-  hello(seq?: number, name?: string): void
+  hello(seq?: number, name?: string, role?: 'desktop' | 'daw_bridge'): void
   closed: Promise<number>
 }
 
@@ -79,13 +79,13 @@ async function connect(engine: EngineServer, { autoPong = true } = {}): Promise<
       const queued = queue.shift()
       return queued ? Promise.resolve(queued) : new Promise((resolve) => waiters.push(resolve))
     },
-    hello: (seq = 1, name = 'Test client') =>
+    hello: (seq = 1, name = 'Test client', role = 'desktop') =>
       send({
         v: PROTOCOL_VERSION,
         type: 'hello',
         seq,
         sentAt: Date.now(),
-        payload: { clientId, role: 'desktop', name },
+        payload: { clientId, role, name },
       }),
   }
 }
@@ -189,7 +189,7 @@ describe('engine server', () => {
 
   it('answers requests and tells every client when the library changes', async () => {
     const dispatch = vi.fn((method: string) =>
-      method === 'setlists.create'
+      method === 'settings.saveDisplay'
         ? ({ ok: true, result: { created: true }, mutated: true } as const)
         : ({ ok: false, code: 'not_found', message: 'Gone.' } as const),
     )
@@ -213,21 +213,21 @@ describe('engine server', () => {
         payload: { requestId, method, params: {} },
       })
 
-    request(2, 'a', 'songs.get')
+    request(2, 'a', 'devices.list')
     expect(await director.next()).toMatchObject({
       type: 'response',
       payload: { requestId: 'a', ok: false, error: { code: 'not_found' } },
     })
 
-    request(3, 'b', 'setlists.create')
+    request(3, 'b', 'settings.saveDisplay')
     expect(await director.next()).toMatchObject({
       type: 'response',
       payload: { requestId: 'b', ok: true, result: { created: true } },
     })
-    expect(await director.next()).toMatchObject({ type: 'library.changed' })
+    expect(await director.next()).toMatchObject({ type: 'data.changed' })
     expect(await operator.next()).toMatchObject({
-      type: 'library.changed',
-      payload: { method: 'setlists.create' },
+      type: 'data.changed',
+      payload: { method: 'settings.saveDisplay' },
     })
   })
 
@@ -238,12 +238,93 @@ describe('engine server', () => {
       type: 'request',
       seq: 1,
       sentAt: Date.now(),
-      payload: { requestId: 'x', method: 'songs.list', params: {} },
+      payload: { requestId: 'x', method: 'devices.list', params: {} },
     })
     expect(await client.next()).toMatchObject({
       type: 'response',
       payload: { ok: false, error: { code: 'handshake_required' } },
     })
+  })
+
+  it('reports where it can be reached', async () => {
+    const engine = await start({ addresses: ['192.168.1.20'] })
+    expect(engine.status()).toMatchObject({ addresses: ['192.168.1.20'], port: engine.port })
+  })
+
+  it('sends the live state right after the welcome', async () => {
+    const snapshot = {
+      daw: { connected: false, name: null, project: null },
+      markers: [{ name: 'Intro', beat: 0 }],
+      transport: null,
+      mode: { mode: 'auto' as const },
+    }
+    const client = await connect(await start({ liveSnapshot: () => snapshot }))
+    client.hello()
+    expect(await client.next()).toMatchObject({ type: 'welcome' })
+    expect(await client.next()).toMatchObject({ type: 'live.state', payload: snapshot })
+  })
+
+  it('accepts DAW messages only from a daw_bridge connection', async () => {
+    const onDawMarkers = vi.fn()
+    const onDawTransport = vi.fn()
+    const onClientLeft = vi.fn()
+    const engine = await start({ onDawMarkers, onDawTransport, onClientLeft })
+    const markers = { project: 'Sunday', markers: [{ name: 'Chorus', beat: 16 }] }
+    const transport = {
+      playing: true,
+      beat: 4,
+      tempo: 72,
+      timeSignature: { numerator: 4, denominator: 4 },
+    }
+    const daw = (client: TestClient, seq: number, type: string, payload: unknown) =>
+      client.send({ v: PROTOCOL_VERSION, type, seq, sentAt: Date.now(), payload })
+
+    const desktop = await connect(engine)
+    desktop.hello(1, 'Booth')
+    await desktop.next() // welcome
+    await desktop.next() // status
+    daw(desktop, 2, 'daw.markers', markers)
+    expect(await desktop.next()).toMatchObject({
+      type: 'error',
+      payload: { code: 'invalid_message', refSeq: 2 },
+    })
+    expect(onDawMarkers).not.toHaveBeenCalled()
+
+    const bridge = await connect(engine)
+    bridge.hello(1, 'Ableton', 'daw_bridge')
+    await bridge.next() // welcome
+    daw(bridge, 2, 'daw.markers', markers)
+    daw(bridge, 3, 'daw.transport', transport)
+    await vi.waitFor(() => expect(onDawTransport).toHaveBeenCalled())
+    expect(onDawMarkers).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({ role: 'daw_bridge', name: 'Ableton' }),
+      markers,
+    )
+    expect(onDawTransport.mock.calls[0]?.[2]).toEqual(transport)
+
+    bridge.socket.close()
+    await vi.waitFor(() =>
+      expect(onClientLeft).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({ role: 'daw_bridge' }),
+      ),
+    )
+  })
+
+  it('broadcasts to identified clients only', async () => {
+    const engine = await start()
+    const identified = await connect(engine)
+    identified.hello()
+    await identified.next() // welcome
+    await identified.next() // status
+    const anonymous = await connect(engine)
+    let anonymousReceived = 0
+    anonymous.socket.on('message', () => (anonymousReceived += 1))
+
+    engine.broadcast('data.changed', { method: 'settings.saveDisplay' })
+    expect(await identified.next()).toMatchObject({ type: 'data.changed' })
+    expect(anonymousReceived).toBe(0)
   })
 
   it('reports a clear error when the port is taken', async () => {

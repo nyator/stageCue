@@ -1,3 +1,4 @@
+import { resolve } from 'node:path'
 import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
 import { defineConfig } from 'electron-vite'
@@ -28,5 +29,14 @@ export default defineConfig({
   },
   renderer: {
     plugins: [react(), tailwindcss()],
+    build: {
+      rollupOptions: {
+        // The app window, and the off-screen page whose frames become the NDI output.
+        input: {
+          index: resolve(import.meta.dirname, 'src/renderer/index.html'),
+          output: resolve(import.meta.dirname, 'src/renderer/output.html'),
+        },
+      },
+    },
   },
 })

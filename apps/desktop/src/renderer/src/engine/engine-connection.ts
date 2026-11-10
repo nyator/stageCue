@@ -1,3 +1,4 @@
+import { beatAt } from '@stagecue/arrangement'
 import {
   methods,
   parseServerMessage,
@@ -6,6 +7,7 @@ import {
   type ClientMessagePayload,
   type ClientRole,
   type EngineStatus,
+  type LiveState,
   type MethodName,
   type MethodParams,
   type MethodResult,
@@ -22,6 +24,12 @@ export interface ClientIdentity {
   clientId: string
   role: ClientRole
   name: string
+}
+
+/** The latest live state and when it arrived, by this page's clock. */
+export interface LiveSnapshot {
+  state: LiveState
+  receivedAt: number
 }
 
 export type EngineRequestErrorCode = RequestErrorCode | 'offline' | 'timeout' | 'invalid_response'
@@ -58,7 +66,9 @@ export class EngineConnection {
   readonly #identity: ClientIdentity
   #state: EngineConnectionState = { phase: 'connecting' }
   #listeners = new Set<() => void>()
-  #libraryListeners = new Set<(method: string) => void>()
+  #dataListeners = new Set<(method: string) => void>()
+  #liveListeners = new Set<() => void>()
+  #live: LiveSnapshot | null = null
   #pending = new Map<string, PendingRequest>()
   #socket: WebSocket | null = null
   #retryTimer: ReturnType<typeof setTimeout> | null = null
@@ -94,6 +104,7 @@ export class EngineConnection {
     this.#socket = null
     socket?.close(1000, 'Client stopped')
     this.#failPending('offline', 'The connection to the engine was closed.')
+    this.#freezeLive()
   }
 
   /** Switches to a different engine address and reconnects. */
@@ -112,10 +123,39 @@ export class EngineConnection {
 
   getState = (): EngineConnectionState => this.#state
 
-  /** Called after any client changes library data. */
-  onLibraryChanged(listener: (method: string) => void): () => void {
-    this.#libraryListeners.add(listener)
-    return () => this.#libraryListeners.delete(listener)
+  /** Called after any client changes stored data, such as display settings. */
+  onDataChanged(listener: (method: string) => void): () => void {
+    this.#dataListeners.add(listener)
+    return () => this.#dataListeners.delete(listener)
+  }
+
+  subscribeLive = (listener: () => void): (() => void) => {
+    this.#liveListeners.add(listener)
+    return () => this.#liveListeners.delete(listener)
+  }
+
+  getLive = (): LiveSnapshot | null => this.#live
+
+  #setLive(live: LiveSnapshot | null): void {
+    this.#live = live
+    for (const listener of this.#liveListeners) {
+      listener()
+    }
+  }
+
+  /**
+   * Losing the engine must not leave a countdown running on its own. Keep the
+   * section on screen but stop the clock where it was.
+   */
+  #freezeLive(): void {
+    const live = this.#live
+    if (!live?.state.transport?.playing) return
+    const now = performance.now()
+    const beat = beatAt(live.state.transport, now - live.receivedAt)
+    this.#setLive({
+      state: { ...live.state, transport: { ...live.state.transport, beat, playing: false } },
+      receivedAt: now,
+    })
   }
 
   request<M extends MethodName>(method: M, params: MethodParams<M>): Promise<MethodResult<M>> {
@@ -182,6 +222,7 @@ export class EngineConnection {
       }
       this.#socket = null
       this.#failPending('offline', 'The connection to the engine was lost.')
+      this.#freezeLive()
       this.#scheduleReconnect()
     })
   }
@@ -229,8 +270,11 @@ export class EngineConnection {
       case 'response':
         this.#handleResponse(message.payload)
         break
-      case 'library.changed':
-        for (const listener of this.#libraryListeners) {
+      case 'live.state':
+        this.#setLive({ state: message.payload, receivedAt: performance.now() })
+        break
+      case 'data.changed':
+        for (const listener of this.#dataListeners) {
           listener(message.payload.method)
         }
         break

@@ -1,20 +1,38 @@
-import { app, BrowserWindow, session, shell } from 'electron'
+import { app, BrowserWindow, ipcMain, session, shell } from 'electron'
 import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { OutputController } from './output/output'
 
 const windowDirectory = path.dirname(fileURLToPath(import.meta.url))
 const devServerUrl = process.env.ELECTRON_RENDERER_URL
+const preload = path.join(windowDirectory, '../preload/index.cjs')
+// Sandboxed preloads cannot read the OS, so pass what they need as arguments.
+const additionalArguments = [`--stagecue-device-name=${os.hostname()}`]
 
 function isAllowedNavigation(url: string): boolean {
   if (devServerUrl && url.startsWith(devServerUrl)) {
     return true
   }
-
   return url.startsWith('file:')
 }
 
-function createWindow(): void {
+/** Loads one of the renderer pages: index.html (the app) or output.html (the NDI band). */
+function loadPage(window: BrowserWindow, page: 'index' | 'output'): Promise<void> {
+  if (devServerUrl) {
+    return window.loadURL(page === 'index' ? devServerUrl : `${devServerUrl}/${page}.html`)
+  }
+  return window.loadFile(path.join(windowDirectory, `../renderer/${page}.html`))
+}
+
+const output = new OutputController({
+  preload,
+  additionalArguments,
+  load: (window) => loadPage(window, 'output'),
+  snapshotPath: process.env.STAGECUE_OUTPUT_SNAPSHOT,
+})
+
+function createWindow(): BrowserWindow {
   const window = new BrowserWindow({
     width: 1280,
     height: 820,
@@ -25,13 +43,12 @@ function createWindow(): void {
     backgroundColor: '#121916',
     title: 'StageCue',
     webPreferences: {
-      preload: path.join(windowDirectory, '../preload/index.cjs'),
+      preload,
+      additionalArguments,
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
       webSecurity: true,
-      // Sandboxed preloads cannot read the OS, so pass what they need as arguments.
-      additionalArguments: [`--stagecue-device-name=${os.hostname()}`],
     },
   })
 
@@ -43,7 +60,6 @@ function createWindow(): void {
     if (url.startsWith('https://')) {
       void shell.openExternal(url)
     }
-
     return { action: 'deny' }
   })
 
@@ -52,16 +68,16 @@ function createWindow(): void {
       event.preventDefault()
     }
   }
-
   window.webContents.on('will-navigate', blockUnexpectedNavigation)
   window.webContents.on('will-redirect', blockUnexpectedNavigation)
 
-  if (devServerUrl) {
-    void window.loadURL(devServerUrl)
-    return
-  }
+  const stopForwarding = output.onStatus((status) => {
+    if (!window.isDestroyed()) window.webContents.send('output:status', status)
+  })
+  window.on('closed', stopForwarding)
 
-  void window.loadFile(path.join(windowDirectory, '../renderer/index.html'))
+  void loadPage(window, 'index')
+  return window
 }
 
 void app.whenReady().then(() => {
@@ -71,7 +87,12 @@ void app.whenReady().then(() => {
     callback(false)
   })
 
+  ipcMain.handle('output:status', () => output.status)
+
   createWindow()
+  output.start().catch((error: unknown) => {
+    console.error('[output] Failed to start', error)
+  })
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
@@ -81,6 +102,7 @@ void app.whenReady().then(() => {
 })
 
 app.on('window-all-closed', () => {
+  void output.stop()
   if (process.platform !== 'darwin') {
     app.quit()
   }

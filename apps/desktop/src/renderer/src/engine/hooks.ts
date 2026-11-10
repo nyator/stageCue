@@ -40,7 +40,7 @@ export function useEngineQuery<M extends MethodName>(
   const paramsKey = params === null ? null : JSON.stringify(params)
   const fetchId = `${method}|${paramsKey}|${revision}`
 
-  useEffect(() => engine.onLibraryChanged(() => setRevision((value) => value + 1)), [])
+  useEffect(() => engine.onDataChanged(() => setRevision((value) => value + 1)), [])
 
   useEffect(() => {
     if (paramsKey === null || !connected) {

@@ -1,32 +1,18 @@
-import {
-  arrangementInputSchema,
-  arrangementSchema,
-  displaySettingsSchema,
-  sectionInputSchema,
-  setlistInputSchema,
-  setlistSchema,
-  setlistSummarySchema,
-  songDetailSchema,
-  songInputSchema,
-  songSummarySchema,
-} from '@stagecue/arrangement'
+import { displaySettingsSchema } from '@stagecue/arrangement'
 import { z } from 'zod'
 import { clientRoleSchema } from './roles.ts'
 
 interface MethodSpec {
   params: z.ZodType
   result: z.ZodType
-  /** Mutations make the engine broadcast library.changed to every client. */
+  /** Changes stored data, so the engine broadcasts data.changed to every client. */
   mutates: boolean
 }
 
-const id = z.uuid()
 const empty = z.strictObject({})
-const byId = z.strictObject({ id })
-const nothing = z.null()
 
 export const deviceSchema = z.object({
-  id,
+  id: z.uuid(),
   name: z.string(),
   role: clientRoleSchema,
   lastAddress: z.string().nullable(),
@@ -35,82 +21,39 @@ export const deviceSchema = z.object({
 })
 export type Device = z.infer<typeof deviceSchema>
 
+/** Following the DAW, or a section the director picked by hand. */
+export const cueModeSchema = z.discriminatedUnion('mode', [
+  z.object({ mode: z.literal('auto') }),
+  z.object({ mode: z.literal('manual'), index: z.int().nonnegative() }),
+])
+
+/**
+ * Director controls. hold freezes the section on screen; next and previous
+ * step from it; select jumps to a marker; auto follows the DAW again.
+ */
+export const overrideActionSchema = z.discriminatedUnion('action', [
+  z.strictObject({ action: z.literal('auto') }),
+  z.strictObject({ action: z.literal('hold') }),
+  z.strictObject({ action: z.literal('next') }),
+  z.strictObject({ action: z.literal('previous') }),
+  z.strictObject({ action: z.literal('select'), index: z.int().nonnegative() }),
+])
+export type OverrideAction = z.infer<typeof overrideActionSchema>
+
 /**
  * Every request a client can make. The engine validates params against these
  * schemas before running a handler; clients validate results before using them.
  */
 export const methods = {
-  'songs.list': { params: empty, result: z.array(songSummarySchema), mutates: false },
-  'songs.get': { params: byId, result: songDetailSchema, mutates: false },
-  'songs.create': { params: songInputSchema, result: songDetailSchema, mutates: true },
-  'songs.update': {
-    params: z.strictObject({ id, song: songInputSchema }),
-    result: songDetailSchema,
-    mutates: true,
-  },
-  'songs.delete': { params: byId, result: nothing, mutates: true },
-
-  /** Replaces the song's sections with this ordered list. Omitted sections are deleted. */
-  'sections.save': {
-    params: z.strictObject({ songId: id, sections: z.array(sectionInputSchema).max(100) }),
-    result: songDetailSchema,
-    mutates: true,
-  },
-
-  'arrangements.create': {
-    params: z.strictObject({
-      songId: id,
-      name: z.string().trim().min(1).max(60),
-      /** Copy entries from this arrangement, or start with every section in song order. */
-      copyFromId: id.nullable(),
-    }),
-    result: arrangementSchema,
-    mutates: true,
-  },
-  'arrangements.save': {
-    params: z.strictObject({ id, arrangement: arrangementInputSchema }),
-    result: arrangementSchema,
-    mutates: true,
-  },
-  'arrangements.delete': { params: byId, result: nothing, mutates: true },
-
-  'setlists.list': { params: empty, result: z.array(setlistSummarySchema), mutates: false },
-  'setlists.get': { params: byId, result: setlistSchema, mutates: false },
-  'setlists.create': { params: setlistInputSchema, result: setlistSchema, mutates: true },
-  'setlists.update': {
-    params: z.strictObject({ id, setlist: setlistInputSchema }),
-    result: setlistSchema,
-    mutates: true,
-  },
-  'setlists.delete': { params: byId, result: nothing, mutates: true },
-
-  /** Adds a song to the end of a setlist, copying the arrangement's sections. */
-  'performances.add': {
-    params: z.strictObject({ setlistId: id, songId: id, arrangementId: id }),
-    result: setlistSchema,
-    mutates: true,
-  },
-  'performances.remove': { params: byId, result: setlistSchema, mutates: true },
-  'performances.move': {
-    params: z.strictObject({ id, position: z.int().nonnegative() }),
-    result: setlistSchema,
-    mutates: true,
-  },
-  /** Re-copies sections from an arrangement. Only allowed while the performance is planned. */
-  'performances.setArrangement': {
-    params: z.strictObject({ id, arrangementId: id }),
-    result: setlistSchema,
-    mutates: true,
-  },
-
   'settings.getDisplay': { params: empty, result: displaySettingsSchema, mutates: false },
   'settings.saveDisplay': {
     params: z.strictObject(displaySettingsSchema.shape),
     result: displaySettingsSchema,
     mutates: true,
   },
-
   'devices.list': { params: empty, result: z.array(deviceSchema), mutates: false },
+  /** Changes what the display shows. The new state arrives as live.state. */
+  'cue.override': { params: overrideActionSchema, result: cueModeSchema, mutates: false },
 } as const satisfies Record<string, MethodSpec>
 
 export type MethodName = keyof typeof methods

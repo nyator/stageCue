@@ -1,0 +1,17 @@
+@import 'tailwindcss';
+
+/* The NDI output: transparent everywhere except the band itself. */
+html,
+body,
+#root {
+  margin: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: transparent;
+}
+
+body {
+  font-family: 'Geist Variable', 'Segoe UI', sans-serif;
+  -webkit-font-smoothing: antialiased;
+}

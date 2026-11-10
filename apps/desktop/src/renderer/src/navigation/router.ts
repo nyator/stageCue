@@ -1,14 +1,8 @@
 import { useEffect, useSyncExternalStore } from 'react'
 
-export type Route =
-  | { name: 'dashboard' }
-  | { name: 'songs' }
-  | { name: 'song'; songId: string; tab: 'arrangements' | 'sections'; arrangementId: string | null }
-  | { name: 'setlists'; setlistId: string | null }
-  | { name: 'display'; setlistId: string | null; performanceId: string | null }
-  | { name: 'connection' }
+export type Route = 'live' | 'style' | 'setup'
 
-let current: Route = { name: 'dashboard' }
+let current: Route = 'live'
 const listeners = new Set<() => void>()
 const blockers = new Set<() => boolean>()
 
@@ -17,15 +11,11 @@ function subscribe(listener: () => void): () => void {
   return () => listeners.delete(listener)
 }
 
-function getRoute(): Route {
-  return current
-}
-
 export function useRoute(): Route {
-  return useSyncExternalStore(subscribe, getRoute)
+  return useSyncExternalStore(subscribe, () => current)
 }
 
-/** Changes screen unless a view with unsaved changes asks to stay. */
+/** Changes tab unless a view with unsaved changes asks to stay. */
 export function navigate(route: Route): void {
   for (const isBlocked of blockers) {
     if (isBlocked() && !window.confirm('You have unsaved changes. Leave without saving?')) {
@@ -38,7 +28,7 @@ export function navigate(route: Route): void {
   }
 }
 
-/** While dirty is true, leaving the screen asks for confirmation. */
+/** While dirty is true, leaving the tab asks for confirmation. */
 export function useUnsavedChangesGuard(dirty: boolean): void {
   useEffect(() => {
     if (!dirty) {

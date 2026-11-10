@@ -65,24 +65,27 @@ export function DisplaySettingsPanel({ value, onChange }: DisplaySettingsPanelPr
       <fieldset className="flex flex-col gap-3">
         <legend className="mb-2 text-[13px] font-medium text-muted">Show</legend>
         <Switch
+          label="Extra line"
+          description="Text after | in the marker name"
+          checked={value.showDetail}
+          onChange={(v) => set('showDetail', v)}
+        />
+        <Switch
           label="Next section"
           checked={value.showNext}
           onChange={(v) => set('showNext', v)}
         />
         <Switch
-          label="Vocal parts"
-          checked={value.showVocalParts}
-          onChange={(v) => set('showVocalParts', v)}
+          label="Countdown"
+          description="Bars to go, then 4, 3, 2, 1 on the beat"
+          checked={value.showCountdown}
+          onChange={(v) => set('showCountdown', v)}
         />
         <Switch
-          label="Repeat count"
-          checked={value.showRepeat}
-          onChange={(v) => set('showRepeat', v)}
-        />
-        <Switch
-          label="Instructions"
-          checked={value.showInstructions}
-          onChange={(v) => set('showInstructions', v)}
+          label="Progress bar"
+          description="Fills across the band as the section nears its end"
+          checked={value.showProgress}
+          onChange={(v) => set('showProgress', v)}
         />
       </fieldset>
     </div>

@@ -119,6 +119,15 @@ importers:
 
   integrations/propresenter: {}
 
+  integrations/simulator:
+    dependencies:
+      '@stagecue/arrangement':
+        specifier: workspace:*
+        version: link:../../packages/arrangement
+      '@stagecue/event-protocol':
+        specifier: workspace:*
+        version: link:../../packages/event-protocol
+
   packages/arrangement:
     dependencies:
       zod:

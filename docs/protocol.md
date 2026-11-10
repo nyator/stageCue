@@ -65,6 +65,8 @@ Sending a second `hello` on the same connection is an `invalid_message` error.
 | `startedAt`       | epoch ms                     |                                      |
 | `protocolVersion` | `1`                          |                                      |
 | `schemaVersion`   | integer                      | Database migration version           |
+| `addresses`       | string[]                     | Where other computers can reach it   |
+| `port`            | integer                      | The engine's port                    |
 | `clients`         | `{ clientId, role, name }[]` | Identified connections               |
 
 ### `error` (engine → client)
@@ -95,42 +97,72 @@ The engine answers every request with exactly one `response`. Requests fail with
 
 ### `response` (engine → client)
 
-Either `{ requestId, ok: true, result }` or `{ requestId, ok: false, error: { code, message } }`. The message is written for people and can be shown as is. Clients validate `result` against the method's result schema before using it.
+Either `{ requestId, ok: true, result }` or `{ requestId, ok: false, error: { code, message } }`. The message is written for people and can be shown as is. Clients validate `result` against the method's result schema.
 
-| Code                 | When                                                             |
-| -------------------- | ---------------------------------------------------------------- |
-| `handshake_required` | The connection has not said `hello`                              |
-| `invalid_params`     | The params do not match the method's schema                      |
-| `not_found`          | The song, arrangement, setlist, or performance does not exist    |
-| `conflict`           | The change would break something, such as deleting a song in use |
-| `internal_error`     | Anything unexpected. Details go to the engine log only.          |
-
-### `library.changed` (engine → client)
-
-`{ method }`, sent to every identified client after any successful change, including the client that made it. Clients reload what they show.
+| Code                 | When                                                   |
+| -------------------- | ------------------------------------------------------ |
+| `handshake_required` | The connection has not said `hello`                    |
+| `invalid_params`     | The params do not match the method's schema            |
+| `conflict`           | The request cannot apply now, such as no markers yet   |
+| `internal_error`     | Anything unexpected. Details go to the engine log only |
 
 ### Methods
 
-The schemas for each method's params and result are in `packages/event-protocol/src/methods.ts`.
+| Method                 | Purpose                                                                                                   |
+| ---------------------- | --------------------------------------------------------------------------------------------------------- |
+| `settings.getDisplay`  | The band style                                                                                            |
+| `settings.saveDisplay` | Saves the band style; every client then receives `data.changed`                                           |
+| `devices.list`         | Every computer that has connected                                                                         |
+| `cue.override`         | Director control: `auto`, `hold`, `next`, `previous`, or `select` with an `index` into the sorted markers |
 
-| Method                                                  | Changes data | Purpose                                                         |
-| ------------------------------------------------------- | ------------ | --------------------------------------------------------------- |
-| `songs.list`                                            | no           | Every song with section and arrangement counts                  |
-| `songs.get`                                             | no           | One song with its sections and arrangements                     |
-| `songs.create`, `songs.update`                          | yes          | Title, writer, key, tempo, time signature                       |
-| `songs.delete`                                          | yes          | Refused while the song is in a setlist                          |
-| `sections.save`                                         | yes          | Replaces a song's ordered sections; refuses to drop one in use  |
-| `arrangements.create`                                   | yes          | Starts from song order or copies another arrangement            |
-| `arrangements.save`                                     | yes          | Name, tempo, key, start bar, ordered entries; bars are computed |
-| `arrangements.delete`                                   | yes          | Setlists keep their copies                                      |
-| `setlists.list`, `setlists.get`                         | no           | Summaries, or one setlist with its performances                 |
-| `setlists.create`, `setlists.update`, `setlists.delete` | yes          | Name, service date, notes                                       |
-| `performances.add`                                      | yes          | Adds a song with an arrangement, copying its sections           |
-| `performances.remove`, `performances.move`              | yes          | Running order                                                   |
-| `performances.setArrangement`                           | yes          | Copies sections again; only while the performance is planned    |
-| `settings.getDisplay`                                   | no           | Choir display style                                             |
-| `settings.saveDisplay`                                  | yes          | Choir display style                                             |
-| `devices.list`                                          | no           | Every computer that has connected                               |
+`hold` freezes the section on screen. `next`, `previous`, and `select` move from it. The display stays under the director's control until `auto`, whatever Ableton does in the meantime. The result is the new mode; every client also receives a `live.state`.
+
+### `data.changed` (engine → client)
+
+`{ method }`, sent to every identified client after a request changed stored data. Clients reload what they show.
+
+## Ableton bridge
+
+A bridge says `hello` with `role: "daw_bridge"`, then sends these. The engine rejects them from any other role with `invalid_message`. The simulator in `integrations/simulator` is a working example.
+
+Positions are in quarter notes from the start of the song (Ableton song time). Tempo is quarter notes per minute.
+
+### `daw.markers` (bridge → engine)
+
+Send on connect, and again whenever locators are added, moved, or renamed.
+
+| Field     | Type                       | Notes                                   |
+| --------- | -------------------------- | --------------------------------------- |
+| `project` | string or null, ≤ 200      | The Live set name, shown to operators   |
+| `markers` | `{ name, beat }[]`, ≤ 1000 | Every locator, in any order; `beat` ≥ 0 |
+
+Names: the text before `|` is the section; the text after it is the extra line. A name of `-` (or empty) clears the band from that point.
+
+### `daw.transport` (bridge → engine)
+
+Send on play, stop, seek, tempo or time signature change, and about ten times a second while playing.
+
+| Field           | Type                                                      |
+| --------------- | --------------------------------------------------------- |
+| `playing`       | boolean                                                   |
+| `beat`          | number, the playhead                                      |
+| `tempo`         | number, 10–999                                            |
+| `timeSignature` | `{ numerator: 1–32, denominator: 1, 2, 4, 8, 16, or 32 }` |
+
+The engine does not need a steady stream to stay accurate: between reports, it and every display move the playhead forward with the tempo. When the bridge disconnects, the engine stops the clock at the estimated position.
+
+### `live.state` (engine → client)
+
+Sent right after `welcome`, then on every change.
+
+| Field       | Type                                                             |
+| ----------- | ---------------------------------------------------------------- |
+| `daw`       | `{ connected, name, project }`                                   |
+| `markers`   | as last received                                                 |
+| `transport` | as last received, with `beat` moved forward to `sentAt`; or null |
+| `mode`      | `{ mode: "auto" }` or `{ mode: "manual", index }`                |
+
+Displays compute the cue themselves (`computeCueView` in `packages/arrangement`), moving `beat` forward from the moment they received the message.
 
 ## Close codes
 

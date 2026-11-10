@@ -3,8 +3,10 @@ import { mkdirSync } from 'node:fs'
 import path from 'node:path'
 import { loadConfig } from './config.ts'
 import { migrate, openDatabase } from './db/database.ts'
-import { recordDeviceSeen } from './repositories/devices.ts'
+import { LiveSession } from './live/live-session.ts'
 import { createLogger } from './logger.ts'
+import { lanAddresses } from './network.ts'
+import { recordDeviceSeen } from './repositories/devices.ts'
 import { createDispatcher } from './rpc/dispatcher.ts'
 import { startEngineServer, type EngineServer } from './server/engine-server.ts'
 
@@ -18,6 +20,10 @@ async function main(): Promise<void> {
   const schemaVersion = migrate(db)
   logger.info('Database ready', { path: databasePath, schemaVersion })
 
+  const live = new LiveSession()
+  const dawLog = logger.child('daw')
+  const addresses = lanAddresses(config.host)
+
   let server: EngineServer
   try {
     server = await startEngineServer({
@@ -27,7 +33,9 @@ async function main(): Promise<void> {
       instanceId: randomUUID(),
       startedAt: Date.now(),
       schemaVersion,
-      dispatch: createDispatcher(db, logger.child('rpc')),
+      addresses,
+      dispatch: createDispatcher(db, live, logger.child('rpc')),
+      liveSnapshot: () => live.snapshot(),
       onClientIdentified: (client) => {
         recordDeviceSeen(db, {
           id: client.clientId,
@@ -36,6 +44,19 @@ async function main(): Promise<void> {
           address: client.address,
           seenAt: new Date(),
         })
+      },
+      onDawMarkers: (connectionId, client, { project, markers }) => {
+        dawLog.info('Markers received', { from: client.name, project, count: markers.length })
+        live.setMarkers(connectionId, client.name, project, markers)
+      },
+      onDawTransport: (connectionId, client, transport) => {
+        live.setTransport(connectionId, client.name, transport)
+      },
+      onClientLeft: (connectionId, client) => {
+        if (client.role === 'daw_bridge') {
+          dawLog.warn('DAW bridge disconnected', { from: client.name })
+          live.bridgeDisconnected(connectionId)
+        }
       },
     })
   } catch (error) {
@@ -50,6 +71,14 @@ async function main(): Promise<void> {
   }
 
   const engine = server
+  live.onChange(() => engine.broadcast('live.state', live.snapshot()))
+
+  if (addresses.length > 0) {
+    logger.info('Point the Ableton device at one of these addresses', {
+      addresses: addresses.map((address) => `${address}:${engine.port}`),
+    })
+  }
+
   let shuttingDown = false
   const shutdown = async (signal: string): Promise<void> => {
     if (shuttingDown) {

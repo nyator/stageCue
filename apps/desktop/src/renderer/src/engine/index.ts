@@ -1,8 +1,20 @@
-import { DEFAULT_ENGINE_PORT } from '@stagecue/event-protocol'
+import { DEFAULT_ENGINE_PORT, type ClientRole } from '@stagecue/event-protocol'
 import { useSyncExternalStore } from 'react'
-import { EngineConnection, type EngineConnectionState } from './engine-connection'
+import {
+  EngineConnection,
+  type EngineConnectionState,
+  type LiveSnapshot,
+} from './engine-connection'
 
-const CLIENT_ID_KEY = 'stagecue.clientId'
+/**
+ * Each page says what it is with <html data-stagecue-role>. The control window is
+ * a desktop client; the hidden page that renders the NDI output is a display.
+ */
+const ROLE: ClientRole =
+  document.documentElement.dataset.stagecueRole === 'display' ? 'display' : 'desktop'
+
+// Separate ids per role, so the two pages of one app are told apart by the engine.
+const CLIENT_ID_KEY = ROLE === 'desktop' ? 'stagecue.clientId' : `stagecue.clientId.${ROLE}`
 const ENGINE_URL_KEY = 'stagecue.engineUrl'
 
 export const DEFAULT_ENGINE_URL = `ws://127.0.0.1:${DEFAULT_ENGINE_PORT}`
@@ -49,8 +61,11 @@ export function validateEngineUrl(value: string): string | null {
 
 export const engine = new EngineConnection(readStorage(ENGINE_URL_KEY) ?? DEFAULT_ENGINE_URL, {
   clientId: loadClientId(),
-  role: 'desktop',
-  name: (window.stagecue?.deviceName ?? 'StageCue Desktop').slice(0, 80),
+  role: ROLE,
+  name: `${window.stagecue?.deviceName ?? 'StageCue'}${ROLE === 'display' ? ' output' : ''}`.slice(
+    0,
+    80,
+  ),
 })
 
 export function changeEngineUrl(url: string): void {
@@ -62,8 +77,12 @@ export function useEngineState(): EngineConnectionState {
   return useSyncExternalStore(engine.subscribe, engine.getState)
 }
 
+export function useLive(): LiveSnapshot | null {
+  return useSyncExternalStore(engine.subscribeLive, engine.getLive)
+}
+
 export { EngineRequestError } from './engine-connection'
-export type { EngineConnectionState }
+export type { EngineConnectionState, LiveSnapshot }
 
 // During development, a hot reload of this module must not leave the old socket open.
 import.meta.hot?.dispose(() => engine.stop())

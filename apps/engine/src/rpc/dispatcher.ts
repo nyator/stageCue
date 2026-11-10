@@ -7,63 +7,22 @@ import {
   type RequestErrorCode,
 } from '@stagecue/event-protocol'
 import { z } from 'zod'
+import type { LiveSession } from '../live/live-session.ts'
 import type { Logger } from '../logger.ts'
-import {
-  createArrangement,
-  deleteArrangement,
-  saveArrangement,
-} from '../repositories/arrangements.ts'
 import { listDevices } from '../repositories/devices.ts'
-import {
-  addPerformance,
-  createSetlist,
-  deleteSetlist,
-  getSetlist,
-  listSetlists,
-  movePerformance,
-  removePerformance,
-  setPerformanceArrangement,
-  updateSetlist,
-} from '../repositories/setlists.ts'
 import { getDisplaySettings, saveDisplaySettings } from '../repositories/settings.ts'
-import {
-  createSong,
-  deleteSong,
-  getSong,
-  listSongs,
-  saveSections,
-  updateSong,
-} from '../repositories/songs.ts'
 import { EngineError } from '../repositories/support.ts'
 
 type Handlers = {
   [M in MethodName]: (params: ParsedMethodParams<M>) => MethodResult<M>
 }
 
-function createHandlers(db: DatabaseSync): Handlers {
+function createHandlers(db: DatabaseSync, live: LiveSession): Handlers {
   return {
-    'songs.list': () => listSongs(db),
-    'songs.get': ({ id }) => getSong(db, id),
-    'songs.create': (song) => createSong(db, song),
-    'songs.update': ({ id, song }) => updateSong(db, id, song),
-    'songs.delete': ({ id }) => deleteSong(db, id),
-    'sections.save': ({ songId, sections }) => saveSections(db, songId, sections),
-    'arrangements.create': (params) => createArrangement(db, params),
-    'arrangements.save': ({ id, arrangement }) => saveArrangement(db, id, arrangement),
-    'arrangements.delete': ({ id }) => deleteArrangement(db, id),
-    'setlists.list': () => listSetlists(db),
-    'setlists.get': ({ id }) => getSetlist(db, id),
-    'setlists.create': (setlist) => createSetlist(db, setlist),
-    'setlists.update': ({ id, setlist }) => updateSetlist(db, id, setlist),
-    'setlists.delete': ({ id }) => deleteSetlist(db, id),
-    'performances.add': (params) => addPerformance(db, params),
-    'performances.remove': ({ id }) => removePerformance(db, id),
-    'performances.move': ({ id, position }) => movePerformance(db, id, position),
-    'performances.setArrangement': ({ id, arrangementId }) =>
-      setPerformanceArrangement(db, id, arrangementId),
     'settings.getDisplay': () => getDisplaySettings(db),
     'settings.saveDisplay': (settings) => saveDisplaySettings(db, settings),
     'devices.list': () => listDevices(db),
+    'cue.override': (action) => live.override(action),
   }
 }
 
@@ -73,8 +32,8 @@ export type RequestOutcome =
 
 export type Dispatcher = (method: MethodName, params: unknown) => RequestOutcome
 
-export function createDispatcher(db: DatabaseSync, logger: Logger): Dispatcher {
-  const handlers = createHandlers(db)
+export function createDispatcher(db: DatabaseSync, live: LiveSession, logger: Logger): Dispatcher {
+  const handlers = createHandlers(db, live)
 
   return (method, rawParams) => {
     const spec = methods[method]

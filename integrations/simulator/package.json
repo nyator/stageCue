@@ -1,0 +1,15 @@
+{
+  "name": "@stagecue/simulator",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Pretends to be Ableton Live, so StageCue can be tested without a DAW.",
+  "type": "module",
+  "scripts": {
+    "start": "node src/index.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@stagecue/arrangement": "workspace:*",
+    "@stagecue/event-protocol": "workspace:*"
+  }
+}

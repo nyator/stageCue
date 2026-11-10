@@ -1,5 +1,6 @@
 import { initialSchema } from './001-initial-schema.ts'
 import { settingsTable } from './002-settings.ts'
+import { dropLibrary } from './003-drop-library.ts'
 
 export interface Migration {
   /** Strictly increasing. Never renumber or edit a migration that has shipped; add a new one. */
@@ -8,4 +9,4 @@ export interface Migration {
   sql: string
 }
 
-export const migrations: readonly Migration[] = [initialSchema, settingsTable]
+export const migrations: readonly Migration[] = [initialSchema, settingsTable, dropLibrary]

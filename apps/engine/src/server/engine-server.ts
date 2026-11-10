@@ -5,10 +5,12 @@ import {
   MAX_MESSAGE_BYTES,
   parseClientMessage,
   PROTOCOL_VERSION,
+  type ClientMessage,
   type ClientMessagePayload,
   type ConnectedClient,
   type EngineStatus,
   type ErrorCode,
+  type LiveState,
   type ServerMessage,
   type ServerMessagePayload,
 } from '@stagecue/event-protocol'
@@ -31,6 +33,23 @@ export interface EngineServerOptions {
   onClientIdentified?: (client: ClientIdentified) => void
   /** Handles request messages. Without one, every request fails with internal_error. */
   dispatch?: Dispatcher
+  /** Where other computers can reach this engine. Reported in the status. */
+  addresses?: string[]
+  /** Sent to each client right after its welcome. */
+  liveSnapshot?: () => LiveState
+  /** DAW messages from connections that identified as daw_bridge. Errors are logged. */
+  onDawMarkers?: (
+    connectionId: string,
+    client: ConnectedClient,
+    payload: ClientMessagePayload<'daw.markers'>,
+  ) => void
+  onDawTransport?: (
+    connectionId: string,
+    client: ConnectedClient,
+    payload: ClientMessagePayload<'daw.transport'>,
+  ) => void
+  /** Called when an identified connection closes. */
+  onClientLeft?: (connectionId: string, client: ConnectedClient) => void
   heartbeatIntervalMs?: number
   handshakeTimeoutMs?: number
 }
@@ -39,6 +58,8 @@ export interface EngineServer {
   readonly host: string
   readonly port: number
   status(): EngineStatus
+  /** Sends a message to every identified client. */
+  broadcast<T extends ServerMessage['type']>(type: T, payload: ServerMessagePayload<T>): void
   close(): Promise<void>
 }
 
@@ -103,6 +124,8 @@ export async function startEngineServer(options: EngineServerOptions): Promise<E
       startedAt: options.startedAt,
       protocolVersion: PROTOCOL_VERSION,
       schemaVersion: options.schemaVersion,
+      addresses: options.addresses ?? [],
+      port: address.port,
       clients,
     }
   }
@@ -173,7 +196,46 @@ export async function startEngineServer(options: EngineServerOptions): Promise<E
       serverTime: Date.now(),
       status: status(),
     })
+    if (options.liveSnapshot) {
+      send(connection, 'live.state', options.liveSnapshot())
+    }
     broadcastStatus()
+  }
+
+  function broadcast<T extends ServerMessage['type']>(
+    type: T,
+    payload: ServerMessagePayload<T>,
+  ): void {
+    for (const connection of connections) {
+      if (connection.client) {
+        send(connection, type, payload)
+      }
+    }
+  }
+
+  function handleDaw(
+    connection: Connection,
+    message: Extract<ClientMessage, { type: 'daw.markers' | 'daw.transport' }>,
+  ): void {
+    const client = connection.client
+    if (client?.role !== 'daw_bridge') {
+      sendError(
+        connection,
+        'invalid_message',
+        'Only a connection that said hello as daw_bridge can send DAW messages.',
+        message.seq,
+      )
+      return
+    }
+    try {
+      if (message.type === 'daw.markers') {
+        options.onDawMarkers?.(connection.id, client, message.payload)
+      } else {
+        options.onDawTransport?.(connection.id, client, message.payload)
+      }
+    } catch (error) {
+      logger.error('DAW message handler failed', { connectionId: connection.id, error })
+    }
   }
 
   function handleRequest(connection: Connection, payload: ClientMessagePayload<'request'>): void {
@@ -204,12 +266,8 @@ export async function startEngineServer(options: EngineServerOptions): Promise<E
 
     send(connection, 'response', { requestId, ok: true, result: outcome.result })
     if (outcome.mutated) {
-      logger.info('Library changed', { method, clientId: connection.client.clientId })
-      for (const other of connections) {
-        if (other.client) {
-          send(other, 'library.changed', { method })
-        }
-      }
+      logger.info('Data changed', { method, clientId: connection.client.clientId })
+      broadcast('data.changed', { method })
     }
   }
 
@@ -246,6 +304,10 @@ export async function startEngineServer(options: EngineServerOptions): Promise<E
         break
       case 'request':
         handleRequest(connection, message.payload)
+        break
+      case 'daw.markers':
+      case 'daw.transport':
+        handleDaw(connection, message)
         break
     }
   }
@@ -299,6 +361,11 @@ export async function startEngineServer(options: EngineServerOptions): Promise<E
         clientId: connection.client?.clientId,
       })
       if (connection.client) {
+        try {
+          options.onClientLeft?.(connection.id, connection.client)
+        } catch (error) {
+          logger.error('Client left hook failed', { connectionId: connection.id, error })
+        }
         broadcastStatus()
       }
     })
@@ -325,6 +392,7 @@ export async function startEngineServer(options: EngineServerOptions): Promise<E
     host: options.host,
     port: address.port,
     status,
+    broadcast,
     close: () =>
       new Promise<void>((resolve) => {
         clearInterval(heartbeat)

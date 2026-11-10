@@ -71,14 +71,65 @@ describe('request messages', () => {
     })
 
   it('accepts known methods and leaves params for the method schema', () => {
-    expect(parseClientMessage(request('songs.list'))).toMatchObject({
+    expect(parseClientMessage(request('devices.list'))).toMatchObject({
       ok: true,
-      message: { payload: { method: 'songs.list', params: { anything: true } } },
+      message: { payload: { method: 'devices.list', params: { anything: true } } },
     })
   })
 
   it('rejects unknown methods', () => {
     expect(parseClientMessage(request('songs.dropTable'))).toMatchObject({
+      ok: false,
+      code: 'invalid_message',
+    })
+  })
+})
+
+describe('DAW messages', () => {
+  const envelope = (type: string, payload: unknown) =>
+    JSON.stringify({ v: PROTOCOL_VERSION, type, seq: 3, sentAt: 1_700_000_000_000, payload })
+
+  it('accepts markers and transport', () => {
+    expect(
+      parseClientMessage(
+        envelope('daw.markers', { project: 'Sunday', markers: [{ name: 'Chorus', beat: 16 }] }),
+      ).ok,
+    ).toBe(true)
+    expect(
+      parseClientMessage(
+        envelope('daw.transport', {
+          playing: true,
+          beat: 12.5,
+          tempo: 72,
+          timeSignature: { numerator: 3, denominator: 4 },
+        }),
+      ).ok,
+    ).toBe(true)
+  })
+
+  it.each([
+    [
+      'a negative marker position',
+      'daw.markers',
+      { project: null, markers: [{ name: 'X', beat: -1 }] },
+    ],
+    [
+      'an unknown marker field',
+      'daw.markers',
+      { project: null, markers: [{ name: 'X', beat: 1, colour: 2 }] },
+    ],
+    [
+      'an impossible tempo',
+      'daw.transport',
+      { playing: true, beat: 0, tempo: 0, timeSignature: { numerator: 4, denominator: 4 } },
+    ],
+    [
+      'an odd time signature',
+      'daw.transport',
+      { playing: true, beat: 0, tempo: 90, timeSignature: { numerator: 4, denominator: 3 } },
+    ],
+  ])('rejects %s', (_label, type, payload) => {
+    expect(parseClientMessage(envelope(type, payload))).toMatchObject({
       ok: false,
       code: 'invalid_message',
     })

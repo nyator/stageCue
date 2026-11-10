@@ -1,38 +1,135 @@
+import { Copy } from '@phosphor-icons/react'
 import { useState } from 'react'
 import {
   changeEngineUrl,
   DEFAULT_ENGINE_URL,
   engine,
   useEngineState,
+  useLive,
   validateEngineUrl,
 } from '../../engine'
 import { useEngineQuery } from '../../engine/hooks'
+import { useOutputStatus } from '../../live/use-output-status'
 import { formatTimestamp } from '../../lib/format'
-import { Button } from '../../ui/button'
+import { Button, IconButton } from '../../ui/button'
 import { QueryView, SkeletonRows } from '../../ui/feedback'
 import { Field, TextInput } from '../../ui/field'
-import { PageHeader, SectionHeading } from '../../ui/page'
+import { SectionHeading } from '../../ui/page'
 
-const ROLE_LABELS = {
-  desktop: 'Desktop app',
-  display: 'Display',
-  daw_bridge: 'DAW bridge',
-} as const
+const ROLE_LABELS = { desktop: 'StageCue app', display: 'Output', daw_bridge: 'Ableton' } as const
 
-export function ConnectionPage() {
+export function SetupPage() {
   return (
-    <>
-      <PageHeader
-        title="Connection"
-        description="How this computer reaches the StageCue engine, and what else is connected."
-      />
-      <div className="flex max-w-3xl flex-col gap-10 px-8 pb-10">
-        <EngineAddress />
-        <ConnectedNow />
-        <KnownDevices />
-        <Integrations />
-      </div>
-    </>
+    <div className="flex max-w-3xl flex-col gap-10 px-8 py-6">
+      <ConnectAbleton />
+      <ConnectProPresenter />
+      <EngineAddress />
+      <KnownDevices />
+    </div>
+  )
+}
+
+function Step({ number, children }: { number: number; children: React.ReactNode }) {
+  return (
+    <li className="grid grid-cols-[1.5rem_minmax(0,1fr)] gap-2 text-sm text-muted">
+      <span className="font-mono text-xs leading-6 text-faint">{number}</span>
+      <div className="leading-6">{children}</div>
+    </li>
+  )
+}
+
+function ConnectAbleton() {
+  const state = useEngineState()
+  const daw = useLive()?.state.daw
+  const [copied, setCopied] = useState<string | null>(null)
+  const addresses =
+    state.phase === 'connected'
+      ? state.status.addresses.map((address) => `${address}:${state.status.port}`)
+      : []
+
+  const copy = (value: string) => {
+    void navigator.clipboard.writeText(value).then(() => setCopied(value))
+  }
+
+  return (
+    <section>
+      <SectionHeading>Connect Ableton</SectionHeading>
+      <p className={`mb-4 text-sm ${daw?.connected ? 'text-cue' : 'text-muted'}`}>
+        {daw?.connected
+          ? `Connected to ${daw.name}${daw.project ? `, ${daw.project}` : ''}.`
+          : 'Ableton is not connected.'}
+      </p>
+      <ol className="flex flex-col gap-2">
+        <Step number={1}>
+          On the music computer, drop the StageCue device onto any track in your Live set.
+        </Step>
+        <Step number={2}>
+          Enter this computer’s address in the device:
+          {addresses.length > 0 ? (
+            <ul className="mt-2 flex flex-col gap-1">
+              {addresses.map((address) => (
+                <li key={address} className="flex items-center gap-1">
+                  <code className="rounded bg-raised px-2 py-1 font-mono text-[13px] text-ink">
+                    {address}
+                  </code>
+                  <IconButton
+                    label={copied === address ? 'Copied' : `Copy ${address}`}
+                    icon={<Copy className="size-4" />}
+                    onClick={() => copy(address)}
+                  />
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <span className="block text-faint">
+              {state.phase === 'connected'
+                ? 'The engine only accepts connections from this computer. Start it with STAGECUE_ENGINE_HOST=0.0.0.0 to allow the music computer.'
+                : 'Shown once the engine is running.'}
+            </span>
+          )}
+        </Step>
+        <Step number={3}>
+          Add locators in the arrangement where each section starts, named like “Chorus” or “Chorus
+          | Full choir”. A locator named “-” clears the screen.
+        </Step>
+      </ol>
+    </section>
+  )
+}
+
+function ConnectProPresenter() {
+  const status = useOutputStatus()
+  const tone =
+    status?.state === 'sending'
+      ? 'text-cue'
+      : status?.state === 'error'
+        ? 'text-alert'
+        : 'text-warn'
+
+  return (
+    <section>
+      <SectionHeading>Show it in ProPresenter</SectionHeading>
+      <p className={`mb-4 text-sm ${status ? tone : 'text-faint'}`}>
+        {status ? status.message : 'Checking the output…'}
+        {status?.state === 'sending' && status.receivers > 0
+          ? ` ${status.receivers} receiver${status.receivers === 1 ? '' : 's'} connected.`
+          : ''}
+      </p>
+      <ol className="flex flex-col gap-2">
+        <Step number={1}>
+          StageCue publishes the band as an NDI video source named “
+          {status?.sourceName ?? 'StageCue'}”, with a transparent background, on this computer.
+        </Step>
+        <Step number={2}>
+          In ProPresenter, add that NDI source as a video input, then place it on a layer above the
+          lyrics in the looks or props you choose.
+        </Step>
+        <Step number={3}>
+          Size and position it there. Lyrics, slides, and media stay entirely under the operator’s
+          control.
+        </Step>
+      </ol>
+    </section>
   )
 }
 
@@ -53,7 +150,7 @@ function EngineAddress() {
 
   const statusText =
     state.phase === 'connected'
-      ? `Connected. Engine running since ${formatTimestamp(new Date(state.status.startedAt).toISOString())}, protocol v${state.status.protocolVersion}, database v${state.status.schemaVersion}.`
+      ? `Connected. Running since ${formatTimestamp(new Date(state.status.startedAt).toISOString())}, protocol v${state.status.protocolVersion}.`
       : state.phase === 'connecting'
         ? 'Connecting…'
         : 'Cannot reach the engine. Retrying automatically.'
@@ -70,7 +167,7 @@ function EngineAddress() {
       >
         <Field
           label="Engine address"
-          hint="Use this computer’s address when the engine runs here. For an engine on the music computer, use its network address."
+          hint="The engine normally runs on this computer. Change this only if it runs elsewhere."
           error={error}
           className="flex-1"
         >
@@ -110,30 +207,6 @@ function EngineAddress() {
   )
 }
 
-function ConnectedNow() {
-  const state = useEngineState()
-  return (
-    <section>
-      <SectionHeading>Connected now</SectionHeading>
-      {state.phase !== 'connected' ? (
-        <p className="text-sm text-muted">Shown once the engine is reachable.</p>
-      ) : (
-        <ul className="flex flex-col">
-          {state.status.clients.map((client) => (
-            <li
-              key={client.clientId}
-              className="flex items-center justify-between border-b border-line-soft py-2.5 text-sm"
-            >
-              <span className="text-ink">{client.name}</span>
-              <span className="text-muted">{ROLE_LABELS[client.role]}</span>
-            </li>
-          ))}
-        </ul>
-      )}
-    </section>
-  )
-}
-
 function KnownDevices() {
   const devices = useEngineQuery('devices.list', {})
   return (
@@ -158,44 +231,15 @@ function KnownDevices() {
                   <td className="py-2.5 font-mono text-xs text-muted">
                     {device.lastAddress ?? '–'}
                   </td>
-                  <td className="py-2.5 text-faint">{formatTimestamp(device.lastSeenAt)}</td>
+                  <td className="py-2.5 whitespace-nowrap text-faint">
+                    {formatTimestamp(device.lastSeenAt)}
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
         )}
       </QueryView>
-    </section>
-  )
-}
-
-function Integrations() {
-  const rows = [
-    { name: 'Ableton Live', detail: 'Follows playback through a Max for Live device.' },
-    { name: 'Logic Pro', detail: 'Follows playback through MIDI from Logic.' },
-    { name: 'ProPresenter', detail: 'Shows the arrangement band over the lyrics.' },
-  ]
-  return (
-    <section>
-      <SectionHeading>Integrations</SectionHeading>
-      <p className="mb-3 text-sm text-muted">
-        These connections are planned but not built yet. Until then, StageCue does not talk to your
-        DAW or to ProPresenter.
-      </p>
-      <ul className="flex flex-col">
-        {rows.map((row) => (
-          <li
-            key={row.name}
-            className="flex items-center justify-between gap-4 border-b border-line-soft py-2.5 text-sm"
-          >
-            <span>
-              <span className="block text-ink">{row.name}</span>
-              <span className="block text-xs text-faint">{row.detail}</span>
-            </span>
-            <span className="shrink-0 text-faint">Not available yet</span>
-          </li>
-        ))}
-      </ul>
     </section>
   )
 }

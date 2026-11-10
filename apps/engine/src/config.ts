@@ -11,8 +11,9 @@ export interface EngineConfig {
 }
 
 const envSchema = z.object({
-  // Loopback by default. Set to 0.0.0.0 to accept connections from other machines on the LAN.
-  STAGECUE_ENGINE_HOST: z.string().trim().min(1).default('127.0.0.1'),
+  // All interfaces by default: the Ableton device on the music computer connects over the network.
+  // Set to 127.0.0.1 to accept connections from this computer only.
+  STAGECUE_ENGINE_HOST: z.string().trim().min(1).default('0.0.0.0'),
   STAGECUE_ENGINE_PORT: z.coerce.number().int().min(0).max(65_535).default(DEFAULT_ENGINE_PORT),
   STAGECUE_DATA_DIR: z.string().trim().min(1).optional(),
   STAGECUE_LOG_LEVEL: z.enum(LOG_LEVELS).default('info'),

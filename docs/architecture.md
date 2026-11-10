@@ -1,58 +1,65 @@
 # Architecture
 
-StageCue is a pnpm workspace. Each directory under `apps`, `packages`, and `integrations` is its own package.
+StageCue is a messenger. The arrangement lives in Ableton as locators on the arrangement grid. StageCue reads where the song is and puts “now, next, and how long until next” on the screen. It never changes playback, lyrics, or slides.
 
 ```text
- DAW bridge ──┐                         ┌── desktop app (editor, director controls)
- (Phase 5/6)  ├── WebSocket ── engine ──┤
- simulator ───┘                │        └── ProPresenter output (Phase 4)
- (Phase 3)                  SQLite
+MUSIC COMPUTER                          MEDIA COMPUTER
+Ableton Live                            ┌─────────────────────────────────────────┐
+ └ Max for Live device ── WebSocket ──► │ engine: live state, director override   │
+   (role daw_bridge)      Wi-Fi or LAN  │   │ live.state                          │
+                                        │   ├──► StageCue app (preview, controls) │
+                                        │   └──► output page, off screen          │
+                                        │          └ 1920×1080 frames ──► NDI     │
+                                        └─────────────────────────────────────────┘
+                                          ProPresenter 7 takes the NDI source as an
+                                          input and layers it over the lyrics.
 ```
 
-## Engine
+## Why only data crosses the network
 
-`apps/engine` is a standalone Node.js process and the single source of truth. It owns the database and, from Phase 3, the live performance state. Every other component is a client that connects to it over WebSocket.
+Video over Wi-Fi is unreliable. Ableton sends a few hundred bytes: the locators once, then the playhead ten times a second. The band is drawn on the media computer, next to ProPresenter, so NDI never leaves that machine.
 
-It is a separate process rather than code inside Electron for three reasons:
+Between reports, every display moves the playhead forward with the tempo (dead reckoning, `beatAt` in `packages/arrangement`). The countdown and the pulse stay smooth even when packets arrive late or bunched. When Ableton or the engine disconnects, displays stop the clock and keep the last section on screen instead of counting on into the next one.
 
-- It can run headless on the music computer next to the DAW, while the desktop app runs on the media computer or anywhere else on the network.
-- A crash or reload in the desktop UI cannot interrupt a live performance.
-- It is plain Node, so it can be tested without Electron.
+## Engine (`apps/engine`)
 
-When StageCue is packaged, Electron will start the engine with `utilityProcess` so users still launch a single app. That is a packaging change, not an architectural one.
+A standalone Node.js process. It:
 
-The engine listens on `127.0.0.1` by default. Other machines can reach it once `STAGECUE_ENGINE_HOST=0.0.0.0` is set. It stays loopback-only by default until device pairing exists, so nothing else on a church network can drive the display.
+- accepts WebSocket clients, validates every message, and rejects stale ones;
+- takes `daw.markers` and `daw.transport` only from connections that identified as `daw_bridge`;
+- keeps the live state in `LiveSession`: markers, the last transport report, and whether the director has taken over;
+- broadcasts `live.state` to every client on each change;
+- stores the band style and the list of devices that have connected, in SQLite.
 
-Node 24 runs the engine's TypeScript directly, so there is no build step. That requires erasable-only syntax (no `enum` or parameter properties) and explicit `.ts` extensions in relative imports, which `tsconfig.base.json` enforces.
+It listens on all interfaces by default because the Ableton device connects from another computer. It reports its network addresses so the app can tell you what to type into the device.
 
-## Database
+## StageCue app (`apps/desktop`)
 
-SQLite through Node's built-in `node:sqlite`. It needs no native module, so nothing has to be recompiled for Electron. Migrations live in `apps/engine/src/db/migrations`. Each one runs in its own transaction and is recorded in `schema_migrations`. The engine refuses to open a database written by a newer build. See [data-model.md](data-model.md).
+Electron with a React renderer, built by Vite, styled with Tailwind CSS.
 
-## Desktop app
+- **Live**: preview of the band, director controls (previous, hold, next, follow Ableton, with keyboard shortcuts), and the locator list.
+- **Style**: colours, opacity, size, position, and which parts of the band to show. Saved in the engine, so every computer uses the same style.
+- **Setup**: how to connect Ableton and ProPresenter, the engine address, and devices.
 
-`apps/desktop` is Electron with a React renderer built by Vite and styled with Tailwind CSS.
+The main process also opens a hidden, off-screen, transparent 1920×1080 window that loads `output.html`. That page connects to the engine as a `display` client and renders only the band. Each painted frame (BGRA with alpha) goes to the NDI sender in `src/main/output`.
 
-- The main process creates one window with context isolation on, Node integration off, and a sandboxed preload. It blocks navigation away from the app, denies new windows (opening `https` links in the system browser instead), and denies every permission request.
-- The preload is built as CommonJS (`out/preload/index.cjs`), as sandboxed preloads require. It exposes only a read-only `window.stagecue` object.
-- The renderer talks to the engine directly over WebSocket. `src/renderer/src/engine/engine-connection.ts` owns that socket, the handshake, message validation, requests, and reconnection with backoff. `engine/hooks.ts` wraps it for React: `useEngineQuery` loads data and reloads it whenever any client changes the library, and `useAction` tracks one user action.
-- Editing rules live outside components. `features/songs/drafts.ts` holds the section and arrangement editing logic as pure, tested functions; components render it.
-- Screens are under `features/`, shared controls under `ui/`. Navigation is a small store in `navigation/router.ts` that also asks before leaving a screen with unsaved changes.
-- The main process passes the computer name to the preload, so each desktop identifies itself to the engine by machine name.
-- The Content Security Policy in `index.html` allows WebSocket connections to any host, so the app can reach an engine on another computer, and blocks every other network access outside the app.
+Security: context isolation on, Node integration off, sandboxed preload (built as CommonJS), navigation and new windows blocked, every permission request denied. The preload exposes only the computer name and the output status.
+
+## NDI
+
+NDI sending needs the NDI SDK through a native Node module (`@stagetimerio/grandiose`), compiled on the machine with the Visual Studio C++ build tools. Until that is installed and tested, `src/main/output/ndi.ts` reports NDI as unavailable, and the app says so. The rest of the output pipeline is in place and verified with `STAGECUE_OUTPUT_SNAPSHOT`.
 
 ## Packages
 
-`packages/event-protocol` defines every WebSocket message as a `zod` schema. Both ends validate what they receive. See [protocol.md](protocol.md).
-
-`packages/shared-types` holds types shared between Electron processes, such as the preload bridge.
-
-`packages/arrangement` is the domain model: songs, sections, arrangements, setlists, display settings, their validation schemas, bar layout, and the display cue logic (current section, next section, repeat pass). It is pure TypeScript, so the engine, the desktop app, and later the integrations share one definition. Phase 3 adds playback tracking here.
+- `packages/arrangement`: marker names (`Chorus | Full choir`), the countdown (bars, then the final beats), the beat phase for the pulse, playhead estimation, and the band style schema. Pure TypeScript with tests.
+- `packages/event-protocol`: every message and request, as `zod` schemas. See [protocol.md](protocol.md).
+- `packages/shared-types`: the preload bridge and output status types.
 
 ## Integrations
 
-`integrations/ableton`, `integrations/logic`, and `integrations/propresenter` are reserved for Phases 4–6. Their Max for Live devices, Scripter scripts, and ProPresenter assets will sit in subfolders when they exist.
+- `integrations/simulator`: a command-line pretend Ableton. It speaks exactly the protocol the Max for Live device will, so it is also the reference implementation.
+- `integrations/ableton`: the Max for Live device (next).
 
-## Dependency direction
+## Units
 
-Apps may depend on packages. Packages never depend on apps. Integrations depend on packages only. The renderer never gets Node.js access.
+Positions are in quarter notes from the start of the song, which is how Ableton reports song time and locator positions. Tempo is quarter notes per minute. In 6/8, a bar is three quarter notes and the countdown counts eighth notes. This will be confirmed with the real device.

@@ -1,5 +1,6 @@
+import { markerSchema, transportSchema } from '@stagecue/arrangement'
 import { z } from 'zod'
-import { METHOD_NAMES, requestErrorCodeSchema } from './methods.ts'
+import { cueModeSchema, METHOD_NAMES, requestErrorCodeSchema } from './methods.ts'
 import { clientRoleSchema } from './roles.ts'
 
 export { clientRoleSchema, type ClientRole } from './roles.ts'
@@ -81,6 +82,9 @@ export const engineStatusSchema = z.object({
   startedAt: timestamp,
   protocolVersion: z.literal(PROTOCOL_VERSION),
   schemaVersion: z.int().nonnegative(),
+  /** Where other computers can reach this engine, such as 192.168.1.20. */
+  addresses: z.array(z.string()),
+  port: z.int().min(0).max(65_535),
   clients: z.array(connectedClientSchema),
 })
 export type EngineStatus = z.infer<typeof engineStatusSchema>
@@ -130,22 +134,64 @@ export const responseMessageSchema = serverMessage(
   ]),
 )
 
-/** Sent to every identified client after any successful mutation, so open views can refresh. */
-export const libraryChangedMessageSchema = serverMessage(
-  'library.changed',
+/** Sent to every identified client after any successful change, so open views can refresh. */
+export const dataChangedMessageSchema = serverMessage(
+  'data.changed',
   z.object({ method: z.string() }),
 )
+
+/*
+ * DAW bridge → engine. Only connections that said hello as daw_bridge may send these.
+ * Positions are in quarter notes (Ableton song time).
+ */
+export const dawMarkersMessageSchema = clientMessage(
+  'daw.markers',
+  z.strictObject({
+    /** The DAW project or set name, when known. */
+    project: z.string().trim().max(200).nullable(),
+    markers: z.array(z.strictObject(markerSchema.shape)).max(1_000),
+  }),
+)
+
+export const dawTransportMessageSchema = clientMessage(
+  'daw.transport',
+  z.strictObject({
+    ...transportSchema.shape,
+    timeSignature: z.strictObject(transportSchema.shape.timeSignature.shape),
+  }),
+)
+
+/**
+ * Everything a display needs, sent whenever it changes. transport.beat is the
+ * playhead at sentAt; receivers move it forward with the tempo between messages.
+ */
+export const liveStateSchema = z.object({
+  daw: z.object({
+    connected: z.boolean(),
+    name: z.string().nullable(),
+    project: z.string().nullable(),
+  }),
+  markers: z.array(markerSchema),
+  transport: transportSchema.nullable(),
+  mode: cueModeSchema,
+})
+export type LiveState = z.infer<typeof liveStateSchema>
+
+export const liveStateMessageSchema = serverMessage('live.state', liveStateSchema)
 
 export const clientMessageSchema = z.discriminatedUnion('type', [
   helloMessageSchema,
   requestMessageSchema,
+  dawMarkersMessageSchema,
+  dawTransportMessageSchema,
 ])
 export const serverMessageSchema = z.discriminatedUnion('type', [
   welcomeMessageSchema,
   engineStatusMessageSchema,
   errorMessageSchema,
   responseMessageSchema,
-  libraryChangedMessageSchema,
+  dataChangedMessageSchema,
+  liveStateMessageSchema,
 ])
 
 export type ClientMessage = z.infer<typeof clientMessageSchema>
