@@ -1,0 +1,13 @@
+{
+  "name": "@stagecue/arrangement",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Arrangement models for StageCue.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  }
+}

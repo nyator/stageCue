@@ -1,0 +1,13 @@
+{
+  "name": "@stagecue/logic",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Logic Pro integration for StageCue.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  }
+}

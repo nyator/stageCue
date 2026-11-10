@@ -1,0 +1,81 @@
+@import 'tailwindcss';
+
+@theme {
+  --font-sans: 'Geist Variable', 'Segoe UI', sans-serif;
+  --font-mono: 'Geist Mono Variable', 'Cascadia Mono', ui-monospace, monospace;
+  --color-ink: oklch(0.95 0.01 165);
+  --color-muted: oklch(0.78 0.018 165);
+  --color-booth: oklch(0.17 0.012 165);
+  --color-line: oklch(0.34 0.02 165);
+  --color-cue: oklch(0.8 0.14 158);
+  --color-warn: oklch(0.83 0.13 80);
+  --color-alert: oklch(0.7 0.17 28);
+}
+
+:root {
+  --ease-out-strong: cubic-bezier(0.23, 1, 0.32, 1);
+  color-scheme: dark;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--color-booth);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  background: oklch(0.8 0.14 158 / 0.35);
+  color: var(--color-ink);
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-cue);
+  outline-offset: 3px;
+}
+
+@keyframes enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes tally {
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.4;
+  }
+}
+
+.enter {
+  animation: enter 280ms var(--ease-out-strong) both;
+}
+
+.tally {
+  animation: tally 2.4s var(--ease-out-strong) infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .enter,
+  .tally {
+    animation: none;
+  }
+}

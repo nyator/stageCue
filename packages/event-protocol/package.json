@@ -1,0 +1,16 @@
+{
+  "name": "@stagecue/event-protocol",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Event wire format for StageCue.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "zod": "^4.6.7"
+  }
+}

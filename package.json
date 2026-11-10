@@ -1,0 +1,44 @@
+{
+  "name": "stagecue",
+  "private": true,
+  "type": "module",
+  "version": "0.0.0",
+  "description": "StageCue desktop application monorepo.",
+  "packageManager": "pnpm@10.22.0",
+  "engines": {
+    "node": ">=24",
+    "pnpm": ">=10"
+  },
+  "scripts": {
+    "dev": "pnpm --parallel --filter @stagecue/engine --filter @stagecue/desktop dev",
+    "dev:desktop": "pnpm --filter @stagecue/desktop dev",
+    "dev:engine": "pnpm --filter @stagecue/engine dev",
+    "start:engine": "pnpm --filter @stagecue/engine start",
+    "build": "pnpm --filter @stagecue/desktop build",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "pnpm -r --if-present typecheck",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "check": "pnpm typecheck && pnpm lint && pnpm test && pnpm format:check"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.0",
+    "@types/node": "^24.10.1",
+    "eslint": "^10.0.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "eslint-plugin-react-refresh": "^0.5.2",
+    "prettier": "^3.9.10",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.72.2",
+    "vitest": "^5.1.0"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "electron",
+      "esbuild"
+    ]
+  }
+}

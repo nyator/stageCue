@@ -1,0 +1,31 @@
+{
+  "name": "@stagecue/desktop",
+  "private": true,
+  "version": "0.0.0",
+  "description": "StageCue Electron desktop application.",
+  "type": "module",
+  "main": "./out/main/index.js",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json"
+  },
+  "dependencies": {
+    "@fontsource-variable/geist": "^5.3.0",
+    "@fontsource-variable/geist-mono": "^5.3.0",
+    "@stagecue/event-protocol": "workspace:*",
+    "@stagecue/shared-types": "workspace:*",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.3.5",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^5.2.0",
+    "electron": "^45.2.3",
+    "electron-vite": "^6.0.0",
+    "tailwindcss": "^4.3.5",
+    "vite": "^7.3.8"
+  }
+}

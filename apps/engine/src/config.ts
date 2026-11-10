@@ -1,0 +1,38 @@
+import path from 'node:path'
+import { DEFAULT_ENGINE_PORT } from '@stagecue/event-protocol'
+import { z } from 'zod'
+import { LOG_LEVELS, type LogLevel } from './logger.ts'
+
+export interface EngineConfig {
+  host: string
+  port: number
+  dataDir: string
+  logLevel: LogLevel
+}
+
+const envSchema = z.object({
+  // Loopback by default. Set to 0.0.0.0 to accept connections from other machines on the LAN.
+  STAGECUE_ENGINE_HOST: z.string().trim().min(1).default('127.0.0.1'),
+  STAGECUE_ENGINE_PORT: z.coerce.number().int().min(0).max(65_535).default(DEFAULT_ENGINE_PORT),
+  STAGECUE_DATA_DIR: z.string().trim().min(1).optional(),
+  STAGECUE_LOG_LEVEL: z.enum(LOG_LEVELS).default('info'),
+})
+
+const defaultDataDir = path.resolve(import.meta.dirname, '../.data')
+
+export function loadConfig(env: NodeJS.ProcessEnv): EngineConfig {
+  const result = envSchema.safeParse(env)
+
+  if (!result.success) {
+    throw new Error(`Invalid engine configuration:\n${z.prettifyError(result.error)}`)
+  }
+
+  const parsed = result.data
+
+  return {
+    host: parsed.STAGECUE_ENGINE_HOST,
+    port: parsed.STAGECUE_ENGINE_PORT,
+    dataDir: path.resolve(parsed.STAGECUE_DATA_DIR ?? defaultDataDir),
+    logLevel: parsed.STAGECUE_LOG_LEVEL,
+  }
+}

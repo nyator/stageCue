@@ -1,0 +1,13 @@
+{
+  "name": "@stagecue/propresenter",
+  "private": true,
+  "version": "0.0.0",
+  "description": "ProPresenter integration for StageCue.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  }
+}

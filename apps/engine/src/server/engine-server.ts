@@ -1,0 +1,303 @@
+import { randomUUID } from 'node:crypto'
+import type { AddressInfo } from 'node:net'
+import {
+  CloseCode,
+  MAX_MESSAGE_BYTES,
+  parseClientMessage,
+  PROTOCOL_VERSION,
+  type ClientMessagePayload,
+  type ConnectedClient,
+  type EngineStatus,
+  type ErrorCode,
+  type ServerMessage,
+  type ServerMessagePayload,
+} from '@stagecue/event-protocol'
+import { WebSocket, WebSocketServer, type RawData } from 'ws'
+import type { Logger } from '../logger.ts'
+
+export interface ClientIdentified extends ConnectedClient {
+  address: string | null
+}
+
+export interface EngineServerOptions {
+  host: string
+  port: number
+  logger: Logger
+  instanceId: string
+  startedAt: number
+  schemaVersion: number
+  /** Called once per connection after a valid hello. Errors are logged, not propagated. */
+  onClientIdentified?: (client: ClientIdentified) => void
+  heartbeatIntervalMs?: number
+  handshakeTimeoutMs?: number
+}
+
+export interface EngineServer {
+  readonly host: string
+  readonly port: number
+  status(): EngineStatus
+  close(): Promise<void>
+}
+
+interface Connection {
+  id: string
+  socket: WebSocket
+  address: string | null
+  alive: boolean
+  lastClientSeq: number
+  client: ConnectedClient | null
+  handshakeTimer: NodeJS.Timeout | null
+}
+
+const CLOSE_GRACE_MS = 1_000
+
+function rawToString(data: RawData): string {
+  if (Buffer.isBuffer(data)) {
+    return data.toString('utf8')
+  }
+
+  if (Array.isArray(data)) {
+    return Buffer.concat(data).toString('utf8')
+  }
+
+  return Buffer.from(data).toString('utf8')
+}
+
+export async function startEngineServer(options: EngineServerOptions): Promise<EngineServer> {
+  const { logger } = options
+  const heartbeatIntervalMs = options.heartbeatIntervalMs ?? 10_000
+  const handshakeTimeoutMs = options.handshakeTimeoutMs ?? 5_000
+  const connections = new Set<Connection>()
+  let outgoingSeq = 0
+
+  const wss = new WebSocketServer({
+    host: options.host,
+    port: options.port,
+    maxPayload: MAX_MESSAGE_BYTES,
+  })
+
+  await new Promise<void>((resolve, reject) => {
+    wss.once('listening', resolve)
+    wss.once('error', reject)
+  })
+
+  wss.on('error', (error) => {
+    logger.error('WebSocket server error', { error })
+  })
+
+  const address = wss.address() as AddressInfo
+
+  function status(): EngineStatus {
+    const clients: ConnectedClient[] = []
+    for (const connection of connections) {
+      if (connection.client) {
+        clients.push(connection.client)
+      }
+    }
+
+    return {
+      instanceId: options.instanceId,
+      startedAt: options.startedAt,
+      protocolVersion: PROTOCOL_VERSION,
+      schemaVersion: options.schemaVersion,
+      clients,
+    }
+  }
+
+  function send<T extends ServerMessage['type']>(
+    connection: Connection,
+    type: T,
+    payload: ServerMessagePayload<T>,
+  ): void {
+    if (connection.socket.readyState !== WebSocket.OPEN) {
+      return
+    }
+
+    outgoingSeq += 1
+    const message = { v: PROTOCOL_VERSION, type, seq: outgoingSeq, sentAt: Date.now(), payload }
+    connection.socket.send(JSON.stringify(message), (error) => {
+      if (error) {
+        logger.warn('Failed to send message', { connectionId: connection.id, type, error })
+      }
+    })
+  }
+
+  function sendError(
+    connection: Connection,
+    code: ErrorCode,
+    message: string,
+    refSeq: number | null,
+  ): void {
+    logger.debug('Rejected client message', { connectionId: connection.id, code, message })
+    send(connection, 'error', { code, message, refSeq })
+  }
+
+  function broadcastStatus(): void {
+    const current = status()
+    for (const connection of connections) {
+      if (connection.client) {
+        send(connection, 'engine.status', current)
+      }
+    }
+  }
+
+  function handleHello(connection: Connection, payload: ClientMessagePayload<'hello'>): void {
+    if (connection.client) {
+      sendError(connection, 'invalid_message', 'This connection has already said hello.', null)
+      return
+    }
+
+    if (connection.handshakeTimer) {
+      clearTimeout(connection.handshakeTimer)
+      connection.handshakeTimer = null
+    }
+
+    connection.client = { clientId: payload.clientId, role: payload.role, name: payload.name }
+    logger.info('Client identified', {
+      connectionId: connection.id,
+      ...connection.client,
+      address: connection.address,
+    })
+
+    try {
+      options.onClientIdentified?.({ ...connection.client, address: connection.address })
+    } catch (error) {
+      logger.error('Client identification hook failed', { connectionId: connection.id, error })
+    }
+
+    send(connection, 'welcome', {
+      connectionId: connection.id,
+      serverTime: Date.now(),
+      status: status(),
+    })
+    broadcastStatus()
+  }
+
+  function handleMessage(connection: Connection, data: RawData, isBinary: boolean): void {
+    if (isBinary) {
+      sendError(connection, 'invalid_message', 'Binary frames are not supported.', null)
+      return
+    }
+
+    const result = parseClientMessage(rawToString(data))
+    if (!result.ok) {
+      sendError(connection, result.code, result.reason, null)
+      if (result.code === 'unsupported_version') {
+        connection.socket.close(CloseCode.unsupportedVersion, 'Unsupported protocol version')
+      }
+      return
+    }
+
+    const message = result.message
+    if (message.seq <= connection.lastClientSeq) {
+      sendError(
+        connection,
+        'stale_message',
+        `Sequence ${message.seq} is not newer than ${connection.lastClientSeq}.`,
+        message.seq,
+      )
+      return
+    }
+    connection.lastClientSeq = message.seq
+
+    switch (message.type) {
+      case 'hello':
+        handleHello(connection, message.payload)
+        break
+    }
+  }
+
+  wss.on('connection', (socket, request) => {
+    const connection: Connection = {
+      id: randomUUID(),
+      socket,
+      address: request.socket.remoteAddress ?? null,
+      alive: true,
+      lastClientSeq: -1,
+      client: null,
+      handshakeTimer: null,
+    }
+    connections.add(connection)
+    logger.debug('Connection opened', { connectionId: connection.id, address: connection.address })
+
+    connection.handshakeTimer = setTimeout(() => {
+      logger.warn('Closing connection that never said hello', { connectionId: connection.id })
+      socket.close(CloseCode.handshakeTimeout, 'Handshake timeout')
+    }, handshakeTimeoutMs)
+
+    socket.on('pong', () => {
+      connection.alive = true
+    })
+
+    socket.on('message', (data, isBinary) => {
+      try {
+        handleMessage(connection, data, isBinary)
+      } catch (error) {
+        logger.error('Unhandled error while processing message', {
+          connectionId: connection.id,
+          error,
+        })
+        sendError(connection, 'internal_error', 'The engine could not process this message.', null)
+      }
+    })
+
+    socket.on('error', (error) => {
+      logger.warn('Connection error', { connectionId: connection.id, error })
+    })
+
+    socket.on('close', (code) => {
+      if (connection.handshakeTimer) {
+        clearTimeout(connection.handshakeTimer)
+      }
+      connections.delete(connection)
+      logger.info('Connection closed', {
+        connectionId: connection.id,
+        code,
+        clientId: connection.client?.clientId,
+      })
+      if (connection.client) {
+        broadcastStatus()
+      }
+    })
+  })
+
+  // Browsers answer protocol-level pings automatically, so this detects dead peers
+  // (sleeping laptops, dropped Wi-Fi) without any client-side code.
+  const heartbeat = setInterval(() => {
+    for (const connection of connections) {
+      if (!connection.alive) {
+        logger.warn('Terminating unresponsive connection', { connectionId: connection.id })
+        connection.socket.terminate()
+        continue
+      }
+      connection.alive = false
+      connection.socket.ping()
+    }
+  }, heartbeatIntervalMs)
+  heartbeat.unref()
+
+  logger.info('Listening for connections', { host: options.host, port: address.port })
+
+  return {
+    host: options.host,
+    port: address.port,
+    status,
+    close: () =>
+      new Promise<void>((resolve) => {
+        clearInterval(heartbeat)
+        for (const connection of connections) {
+          connection.socket.close(CloseCode.shuttingDown, 'Engine shutting down')
+        }
+        const forceClose = setTimeout(() => {
+          for (const connection of connections) {
+            connection.socket.terminate()
+          }
+        }, CLOSE_GRACE_MS)
+        forceClose.unref()
+        wss.close(() => {
+          clearTimeout(forceClose)
+          resolve()
+        })
+      }),
+  }
+}

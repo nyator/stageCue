@@ -1,0 +1,23 @@
+node_modules/
+dist/
+out/
+*.tsbuildinfo
+.DS_Store
+Thumbs.db
+*.log
+.eslintcache
+.vite/
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Local engine data
+.data/
+*.db
+*.db-shm
+*.db-wal
+
+# Claude Code session cache
+.claude/.cache/
