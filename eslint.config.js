@@ -39,7 +39,7 @@ export default tseslint.config(
     },
     rules: {
       'no-var': 'off',
-      'no-unused-vars': ['error', { varsIgnorePattern: '^(bang|notifydeleted)$' }],
+      'no-unused-vars': ['error', { varsIgnorePattern: '^(bang|refresh|notifydeleted)$' }],
       '@typescript-eslint/no-unused-vars': 'off',
     },
   },
@@ -53,6 +53,7 @@ export default tseslint.config(
         process: 'readonly',
         console: 'readonly',
         setTimeout: 'readonly',
+        setInterval: 'readonly',
         clearTimeout: 'readonly',
         WebSocket: 'readonly',
       },

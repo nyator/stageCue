@@ -1,161 +1,178 @@
+import { createRequire } from 'node:module'
+import type { Sender } from '@stagetimerio/grandiose'
+
 /*
- * Sends the band as an NDI video source through @stagetimerio/grandiose, a
- * native module built against the NDI SDK at install time (see
- * docs/technical-design.md §6). It is loaded at runtime, so a computer where it
- * failed to build reports NDI as unavailable instead of crashing the app.
+ * Sends the output frames as an NDI source through @stagetimerio/grandiose, a
+ * native module built against the NDI SDK at install time. The module is loaded
+ * at runtime inside try, so a computer where it did not build reports NDI as
+ * unavailable instead of crashing the app.
+ *
+ * A new frame goes out the moment Chromium paints it, so nothing waits for a
+ * timer tick. The off-screen window only paints when something changes, but
+ * receivers expect a continuous stream, so a timer resends the latest frame
+ * whenever no new one has gone out for a frame's time.
  */
 
 export interface Frame {
   width: number
   height: number
-  /** Pixels in BGRA order, 4 bytes each, rows top to bottom. */
+  /** Pixels in BGRA order, 4 bytes each, rows top to bottom, alpha premultiplied (Chromium's format). */
   bgra: Buffer
 }
 
 export interface FrameSender {
-  /** Replaces the frame being sent. Cheap: the frame goes out on the next tick. */
+  /** Sends the frame now (or as soon as the previous one has gone). */
   send(frame: Frame): void
+  setFrameRate(frameRate: number): void
   receivers(): number
   close(): Promise<void>
 }
 
 export type SenderResult = { ok: true; sender: FrameSender } | { ok: false; reason: string }
 
-/*
- * The parts of the module StageCue uses. Its own type definitions use const
- * enums, which isolatedModules cannot import, so the constants are read from
- * the module at runtime instead.
- */
-interface NdiSenderHandle {
-  video(frame: {
-    xres: number
-    yres: number
-    frameRateN: number
-    frameRateD: number
-    fourCC: number
-    pictureAspectRatio: number
-    frameFormatType: number
-    lineStrideBytes: number
-    data: Buffer
-  }): Promise<void>
-  connections(): number
-  destroy(): Promise<void>
-}
-
-interface NdiModule {
-  send(params: { name: string; clockVideo?: boolean }): Promise<NdiSenderHandle>
+// The module's typings leave out these runtime exports.
+type Grandiose = typeof import('@stagetimerio/grandiose') & {
+  version(): string
+  isSupportedCPU(): boolean
   FOURCC_BGRA: number
   FORMAT_TYPE_PROGRESSIVE: number
 }
 
-const NDI_MODULE = '@stagetimerio/grandiose'
-
-async function loadNdi(): Promise<NdiModule | null> {
+function loadGrandiose(): Grandiose | string {
   try {
-    const loaded = (await import(/* @vite-ignore */ NDI_MODULE)) as {
-      default?: NdiModule
-    } & Partial<NdiModule>
-    const ndi = (loaded.default ?? loaded) as NdiModule
-    return typeof ndi.send === 'function' ? ndi : null
+    const grandiose = createRequire(import.meta.url)('@stagetimerio/grandiose') as Grandiose
+    if (!grandiose.isSupportedCPU()) return 'This computer’s processor is not supported by NDI.'
+    return grandiose
   } catch (error) {
-    console.warn('[output] NDI module not available', error)
-    return null
+    console.error('[ndi] Could not load the NDI module:', error)
+    return 'The NDI module is not installed on this computer. Run pnpm install with the build tools present.'
   }
 }
 
 /**
- * Creates the NDI source. Frames go out as the output controller hands them
- * over, at its regular cadence, so there is a single clock (two independent
- * clocks drift and make frames repeat or skip, which shows as judder). When
- * nothing changes no frames arrive, so the newest one is re-sent to keep
- * receivers fed. A frame that arrives while one is being sent replaces any
- * waiting frame, so sends never queue up.
+ * Chromium paints with premultiplied alpha; NDI's BGRA is straight alpha. Most
+ * pixels are fully transparent or fully opaque and need no change, so only the
+ * soft edges (anti-aliased text, the fading pulse) are divided back out.
  */
-export async function createNdiSender(
-  sourceName: string,
-  frameRate: number,
-): Promise<SenderResult> {
-  const ndi = await loadNdi()
-  if (!ndi) {
-    return {
-      ok: false,
-      reason:
-        'NDI is not available on this computer, so nothing is sent to ProPresenter. The live preview still works.',
-    }
+export function unpremultiply(bgra: Buffer): Buffer {
+  // Read whole pixels at once: alpha is the top byte of each little-endian word,
+  // so the transparent and opaque pixels (nearly all of them) cost one compare.
+  const pixels =
+    bgra.byteOffset % 4 === 0
+      ? new Uint32Array(bgra.buffer, bgra.byteOffset, bgra.length >>> 2)
+      : new Uint32Array(Uint8Array.from(bgra).buffer) // Unaligned: read alpha from a copy.
+  for (let p = 0; p < pixels.length; p++) {
+    const alpha = pixels[p]! >>> 24
+    if (alpha === 0 || alpha === 255) continue
+    const i = p << 2
+    const scale = 255 / alpha
+    bgra[i] = Math.min(255, Math.round(bgra[i]! * scale))
+    bgra[i + 1] = Math.min(255, Math.round(bgra[i + 1]! * scale))
+    bgra[i + 2] = Math.min(255, Math.round(bgra[i + 2]! * scale))
   }
+  return bgra
+}
 
-  let handle: NdiSenderHandle
+export async function createNdiSender(name: string, frameRate: number): Promise<SenderResult> {
+  const grandiose = loadGrandiose()
+  if (typeof grandiose === 'string') return { ok: false, reason: grandiose }
+
+  let sender: Sender
   try {
-    handle = await ndi.send({ name: sourceName, clockVideo: false })
+    // clockVideo off: this module paces frames itself, so a send never blocks the main process.
+    sender = await grandiose.send({ name, clockVideo: false })
   } catch (error) {
-    console.error('[output] Could not create the NDI source', error)
-    return {
-      ok: false,
-      reason: 'NDI could not start. Check that NDI Tools or the NDI runtime is installed.',
-    }
+    console.error('[ndi] Could not create the NDI sender:', error)
+    return { ok: false, reason: 'NDI could not start a source on this computer.' }
   }
 
-  const frameMs = 1000 / frameRate
   let latest: Frame | null = null
-  let waiting: Frame | null = null
+  /** Whether latest has had its alpha converted. Only frames that go out are converted. */
+  let converted = false
   let sending = false
+  let pending = false
   let lastSentAt = 0
-  let closed = false
-  let delivered = false
+  let rate = frameRate
 
-  const deliver = (frame: Frame): void => {
+  // STAGECUE_OUTPUT_STATS=1 logs how many frames NDI accepted and how long each send took.
+  const stats = process.env.STAGECUE_OUTPUT_STATS ? { sent: 0, sendMs: 0 } : null
+  const statsTimer = stats
+    ? setInterval(() => {
+        console.log(
+          `[ndi] ${(stats.sent / 5).toFixed(1)} frames/s sent, ${(stats.sendMs / Math.max(stats.sent, 1)).toFixed(1)} ms per send`,
+        )
+        stats.sent = 0
+        stats.sendMs = 0
+      }, 5_000)
+    : null
+  statsTimer?.unref()
+
+  const pump = () => {
+    // Never queue frames: if a send is still in flight, send the newest one when it ends.
+    if (!latest) return
+    if (sending) {
+      pending = true
+      return
+    }
+    const frame = latest
+    if (!converted) {
+      unpremultiply(frame.bgra)
+      converted = true
+    }
     sending = true
+    pending = false
     lastSentAt = performance.now()
-    handle
+    const startedAt = lastSentAt
+    sender
       .video({
         xres: frame.width,
         yres: frame.height,
-        frameRateN: frameRate,
+        frameRateN: rate,
         frameRateD: 1,
-        fourCC: ndi.FOURCC_BGRA,
+        fourCC: grandiose.FOURCC_BGRA,
         pictureAspectRatio: frame.width / frame.height,
-        frameFormatType: ndi.FORMAT_TYPE_PROGRESSIVE,
+        frameFormatType: grandiose.FORMAT_TYPE_PROGRESSIVE,
         lineStrideBytes: frame.width * 4,
         data: frame.bgra,
       })
-      .then(() => {
-        if (!delivered) {
-          delivered = true
-          console.log(`[output] Sending to NDI as “${sourceName}” at ${frameRate} fps`)
-        }
-      })
-      .catch((error: unknown) => {
-        if (!closed) console.warn('[output] NDI frame was not sent', error)
-      })
+      .catch((error: unknown) => console.error('[ndi] Sending a frame failed:', error))
       .finally(() => {
+        if (stats) {
+          stats.sent += 1
+          stats.sendMs += performance.now() - startedAt
+        }
         sending = false
-        const next = waiting
-        waiting = null
-        if (next && !closed) deliver(next)
+        if (pending) pump()
       })
   }
 
-  // Keeps the signal alive while the picture is still.
-  const keepAlive = setInterval(() => {
-    if (closed || sending || !latest) return
-    if (performance.now() - lastSentAt >= frameMs * 1.5) deliver(latest)
-  }, frameMs)
+  // Keeps the stream steady while nothing changes on screen.
+  let timer = setInterval(keepAlive, 1000 / rate)
+  function keepAlive() {
+    if (performance.now() - lastSentAt >= 1000 / rate - 2) pump()
+  }
 
   return {
     ok: true,
     sender: {
-      send: (frame) => {
+      send(frame) {
+        // Converted when it goes out: frames replaced before then cost nothing.
         latest = frame
-        if (closed) return
-        if (sending) waiting = frame
-        else deliver(frame)
+        converted = false
+        pump()
       },
-      receivers: () => (closed ? 0 : handle.connections()),
-      close: async () => {
-        if (closed) return
-        closed = true
-        clearInterval(keepAlive)
-        await handle.destroy()
+      setFrameRate(next) {
+        if (next === rate) return
+        rate = next
+        clearInterval(timer)
+        timer = setInterval(keepAlive, 1000 / rate)
+      },
+      receivers: () => sender.connections(),
+      async close() {
+        clearInterval(timer)
+        if (statsTimer) clearInterval(statsTimer)
+        latest = null
+        await sender.destroy()
       },
     },
   }

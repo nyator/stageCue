@@ -40,7 +40,7 @@ The app follows the tokens in `src/renderer/src/styles.css` (dark, tinted neutra
 
 - Save, Discard, and Reset sit in the page header, always in reach; the status sentence says whether screens have the edited style yet.
 - The page never scrolls (`MonitorColumns`): the header with Save stays put, and only the inspector on the right scrolls. A segmented control switches the preview between ProPresenter and a TV; the caption under the preview shares its width.
-- The inspector groups settings as a volunteer thinks of them: Position, Colours (round swatches that open the system picker), Size and see-through, Show.
+- The inspector groups settings as a volunteer thinks of them: Position, Colours (round swatches that open the system picker), Size and see-through, Show, and ProPresenter output (Output size 1080p or 4K, and Show cues early, both from the Mac's work merged on 11 November 2026).
 
 ## Setup page
 

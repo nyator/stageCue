@@ -44,13 +44,13 @@ Electron with a React renderer, built by Vite, styled with Tailwind CSS.
 
 The look and the reasons behind it are in [apps/desktop/DESIGN.md](../apps/desktop/DESIGN.md).
 
-The main process also opens a hidden, off-screen, transparent 1920×1080 window that loads `output.html`. That page connects to the engine as a `display` client and renders only the band. Each painted frame (BGRA with alpha) goes to the NDI sender in `src/main/output`.
+The main process also opens a hidden, off-screen, transparent window (1920×1080, or 3840×2160 when Output size is 4K) that loads `output.html`. That page connects to the engine as a `display` client and renders only the band. Each painted frame (BGRA with alpha) goes to the NDI sender in `src/main/output`.
 
 Security: context isolation on, Node integration off, sandboxed preload (built as CommonJS), navigation and new windows blocked, every permission request denied. The preload exposes only the computer name and the output status.
 
 ## NDI
 
-The output window's frames go out as the NDI source “StageCue” (listed as “<computer name> (StageCue)”) through a native Node module, `@stagetimerio/grandiose`, built against the NDI SDK at install time. NDI paces the frames (30 fps). Frames are **premultiplied** BGRA, as Chromium renders them, so the ProPresenter input must be set to premultiplied alpha. If the module is missing or fails to load, the app reports NDI as unavailable and keeps running. See [technical-design.md](technical-design.md) §6.
+The output window's frames go out as the NDI source “StageCue” (listed as “<computer name> (StageCue)”) through a native Node module, `@stagetimerio/grandiose`, built against the NDI SDK at install time. Frames go out at 1080p (60 fps on macOS, 30 on Windows) or 4K (30 fps), as chosen in Style → Output size. Chromium renders premultiplied alpha; StageCue converts it to straight alpha, the NDI standard, so the ProPresenter input stays on its default. If the module is missing or fails to load, the app reports NDI as unavailable and keeps running. See [technical-design.md](technical-design.md) §6.
 
 ## Screens without ProPresenter
 

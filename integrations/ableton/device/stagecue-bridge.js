@@ -22,6 +22,9 @@ const DEFAULT_PORT = 7417
 const DEFAULT_HOST = `127.0.0.1:${DEFAULT_PORT}`
 const RETRY_MIN_MS = 1_000
 const RETRY_MAX_MS = 5_000
+/** A connection attempt that has not opened by now is given up and retried. */
+const CONNECT_TIMEOUT_MS = 4_000
+const WATCHDOG_MS = 2_000
 
 // Settings survive Live restarts and are shared by every StageCue device on this computer.
 const SETTINGS_FILE = path.join(os.homedir(), '.stagecue', 'ableton-device.json')
@@ -31,6 +34,9 @@ let socket = null
 let seq = 0
 let retryMs = RETRY_MIN_MS
 let retryTimer = null
+let connectingSince = 0
+/** Set when the engine refuses this device's protocol version: retrying cannot help. */
+let incompatible = false
 let lastMarkers = null
 let lastTransport = null
 
@@ -76,8 +82,41 @@ function deviceName() {
   return `Ableton on ${machine}`.slice(0, 80)
 }
 
-function status(text) {
+// The status light on the device: connected, working on it, or needs attention.
+const LIGHT = {
+  ok: [0.37, 0.83, 0.6, 1],
+  wait: [0.96, 0.72, 0.26, 1],
+  error: [0.93, 0.36, 0.36, 1],
+}
+
+function status(text, light = 'wait') {
   Max.outlet('status', text)
+  Max.outlet('light', ...LIGHT[light])
+}
+
+// What the device shows about the song: the section under the playhead, and
+// whether Live is playing. Sent only when it changes.
+let shownSection = null
+let shownPlaying = null
+
+function showSong() {
+  const markers = lastMarkers ? lastMarkers.markers : []
+  const beat = lastTransport ? lastTransport.beat : 0
+  let section = markers.length ? 'Before the first locator' : 'No locators yet'
+  for (const marker of markers) {
+    if (marker.beat > beat + 1e-6) break
+    const label = String(marker.name).split('|')[0].trim()
+    section = label === '' || label === '-' ? 'Band cleared' : label
+  }
+  if (section !== shownSection) {
+    shownSection = section
+    Max.outlet('section', section)
+  }
+  const playing = Boolean(lastTransport && lastTransport.playing)
+  if (playing !== shownPlaying) {
+    shownPlaying = playing
+    Max.outlet('playstate', playing ? 'PLAYING' : 'STOPPED')
+  }
 }
 
 function send(type, payload) {
@@ -91,17 +130,19 @@ function connect() {
   retryTimer = null
 
   const url = engineUrl(settings.host)
-  status(`Connecting to ${settings.host}…`)
+  status('Connecting…')
 
   let ws
   try {
     ws = new WebSocket(url)
   } catch (error) {
-    status(`Bad address: ${settings.host}`)
+    status('That address does not look right', 'error')
     Max.post(`StageCue: ${error.message}`)
+    scheduleRetry()
     return
   }
   socket = ws
+  connectingSince = Date.now()
 
   ws.onopen = () => {
     if (socket !== ws) return
@@ -110,6 +151,9 @@ function connect() {
     send('hello', { clientId: settings.clientId, role: 'daw_bridge', name: deviceName() })
     // Replay what the engine missed while disconnected.
     if (lastMarkers) send('daw.markers', lastMarkers)
+    // Ask the Live side for everything again: it may have sent the markers
+    // before this script was running, and they only resend when locators change.
+    Max.outlet('refresh')
     if (lastTransport) send('daw.transport', lastTransport)
   }
 
@@ -121,7 +165,7 @@ function connect() {
       return
     }
     if (message.type === 'welcome') {
-      status(`Connected to ${settings.host}`)
+      status('Connected to StageCue', 'ok')
     } else if (message.type === 'error') {
       Max.post(`StageCue engine rejected a message: ${message.payload?.message}`)
     }
@@ -131,12 +175,12 @@ function connect() {
     if (socket !== ws) return
     socket = null
     if (event.code === 4000) {
-      status('Engine uses a different protocol version. Update the device.')
+      incompatible = true
+      status('Update this device to match StageCue', 'error')
       return
     }
-    status(`Not connected to ${settings.host}. Retrying…`)
-    retryTimer = setTimeout(connect, retryMs)
-    retryMs = Math.min(RETRY_MAX_MS, retryMs * 2)
+    status('StageCue not found. Retrying…', 'error')
+    scheduleRetry()
   }
 
   ws.onerror = () => {
@@ -144,11 +188,39 @@ function connect() {
   }
 }
 
+function scheduleRetry() {
+  clearTimeout(retryTimer)
+  retryTimer = setTimeout(connect, retryMs)
+  retryMs = Math.min(RETRY_MAX_MS, retryMs * 2)
+}
+
 function reconnect() {
   const old = socket
   socket = null
   if (old) old.close()
   retryMs = RETRY_MIN_MS
+  incompatible = false
+  connect()
+}
+
+/**
+ * Belt and braces: whatever went wrong, never sit idle while disconnected. Gives
+ * up on attempts that hang (a computer that went to sleep, a dropped Wi-Fi
+ * link) and restarts the retry loop if it ever stopped.
+ */
+function watchdog() {
+  if (incompatible || retryTimer) return
+  if (socket && socket.readyState === WebSocket.OPEN) {
+    // Connected but nothing from Live yet: the Live side may have been reloaded. Nudge it.
+    if (!lastMarkers || !lastTransport) Max.outlet('refresh')
+    return
+  }
+  // Connecting, closing, or closed without a retry lined up: give it a moment, then start over.
+  if (socket && Date.now() - connectingSince < CONNECT_TIMEOUT_MS) return
+  const stuck = socket
+  socket = null
+  if (stuck) stuck.close()
+  status('StageCue not found. Retrying…', 'error')
   connect()
 }
 
@@ -161,6 +233,9 @@ Max.addHandler('markers', (json) => {
   }
   lastMarkers = { project: null, markers: parsed.markers }
   send('daw.markers', lastMarkers)
+  const count = parsed.markers.length
+  Max.outlet('locators', count === 1 ? '1 locator' : `${count} locators`)
+  showSong()
 })
 
 Max.addHandler('transport', (json) => {
@@ -170,6 +245,7 @@ Max.addHandler('transport', (json) => {
     return
   }
   send('daw.transport', lastTransport)
+  showSong()
 })
 
 // From the address field. [textedit] may prefix its output with "text".
@@ -185,8 +261,12 @@ Max.addHandler('host', (...words) => {
 })
 
 if (typeof WebSocket === 'undefined') {
-  status('This Max has no built-in WebSocket. Use Max 9 (Live 12) or newer.')
+  status('Needs Live 12 or newer', 'error')
 } else {
   Max.outlet('host', settings.host)
+  Max.outlet('locators', '0 locators')
+  showSong()
+  Max.outlet('refresh')
   connect()
+  setInterval(watchdog, WATCHDOG_MS)
 }

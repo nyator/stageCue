@@ -1,4 +1,4 @@
-import type { DisplaySettings } from '@stagecue/arrangement'
+import { MAX_EARLY_MS, type DisplaySettings } from '@stagecue/arrangement'
 import { useId } from 'react'
 import { Switch } from '../../ui/field'
 import { GroupLabel } from '../../ui/page'
@@ -9,6 +9,11 @@ interface DisplaySettingsPanelProps {
   onChange: (value: DisplaySettings) => void
 }
 
+const OUTPUT_SIZE_OPTIONS = [
+  { value: '1080p', label: '1080p (HD)' },
+  { value: '4k', label: '4K' },
+] as const
+
 const POSITIONS = [
   { value: 'top', label: 'Top' },
   { value: 'bottom', label: 'Bottom' },
@@ -18,7 +23,14 @@ const POSITIONS = [
 export function DisplaySettingsPanel({ value, onChange }: DisplaySettingsPanelProps) {
   const set = <K extends keyof DisplaySettings>(key: K, next: DisplaySettings[K]) =>
     onChange({ ...value, [key]: next })
-  const ids = { position: useId(), colours: useId(), size: useId(), show: useId() }
+  const ids = {
+    position: useId(),
+    colours: useId(),
+    size: useId(),
+    show: useId(),
+    output: useId(),
+    outputSize: useId(),
+  }
 
   return (
     <div className="flex flex-col divide-y divide-line-soft">
@@ -76,7 +88,7 @@ export function DisplaySettingsPanel({ value, onChange }: DisplaySettingsPanelPr
         </div>
       </div>
 
-      <div role="group" aria-labelledby={ids.show} className="pt-5">
+      <div role="group" aria-labelledby={ids.show} className="py-5">
         <GroupLabel as="span">
           <span id={ids.show}>Show</span>
         </GroupLabel>
@@ -104,6 +116,41 @@ export function DisplaySettingsPanel({ value, onChange }: DisplaySettingsPanelPr
             checked={value.showProgress}
             onChange={(v) => set('showProgress', v)}
           />
+        </div>
+      </div>
+      <div role="group" aria-labelledby={ids.output} className="flex flex-col gap-5 pt-5">
+        <GroupLabel as="span">
+          <span id={ids.output}>ProPresenter output</span>
+        </GroupLabel>
+        <div className="-mt-2.5 flex flex-col gap-2">
+          <span id={ids.outputSize} className="text-sm text-ink">
+            Output size
+          </span>
+          <Segmented
+            labelledBy={ids.outputSize}
+            options={OUTPUT_SIZE_OPTIONS}
+            value={value.outputSize}
+            onChange={(size) => set('outputSize', size)}
+            stretch
+          />
+          <p className="text-xs leading-relaxed text-faint">
+            Match ProPresenter’s output. 4K is sharper on 4K screens but works the computer harder.
+          </p>
+        </div>
+        <div className="flex flex-col gap-2">
+          <RangeRow
+            label="Show cues early"
+            min={0}
+            max={MAX_EARLY_MS}
+            step={10}
+            value={value.earlyMs}
+            format={(v) => (v === 0 ? 'Off' : `${v} ms`)}
+            onChange={(v) => set('earlyMs', v)}
+          />
+          <p className="text-xs leading-relaxed text-faint">
+            If the screen changes after the music, slide this up until the 4, 3, 2, 1 lands on the
+            beat. Most setups need 50 to 150 ms. Only the output to ProPresenter moves.
+          </p>
         </div>
       </div>
     </div>

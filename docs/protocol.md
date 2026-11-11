@@ -145,7 +145,7 @@ Names: the text before `|` is the section; the text after it is the extra line. 
 
 ### `daw.transport` (bridge → engine)
 
-Send on play, stop, seek, tempo or time signature change, and about ten times a second while playing.
+Send on play, stop, seek, tempo or time signature change, and ten to twenty times a second while playing (the Ableton device sends every 50 ms).
 
 | Field           | Type                                                                 |
 | --------------- | -------------------------------------------------------------------- |

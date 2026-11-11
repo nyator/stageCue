@@ -98,8 +98,9 @@ The engine follows one DAW bridge. Another bridge that sends while the followed 
 
 - Two renderer pages built by electron-vite: `index.html` (the app) and `output.html` (the band only, transparent). A page's role comes from `<html data-stagecue-role>`; the output page connects as `display`.
 - The app's pages (Live, Style, Setup) share one design, recorded in `apps/desktop/DESIGN.md`. What each Setup box says is a pure function (`features/setup/signal.ts`, tested); bar and beat for any time signature is `features/live/position.ts` (tested). Live and Style fit the window with `MonitorColumns`, which sizes the preview column from the height left and gives the rest of the width to the right column.
-- `src/main/output/output.ts` (`OutputController`): opens an off-screen, transparent, 1920×1080 window (`enableLargerThanScreen` so the OS does not clamp it), 30 fps, and forwards each `paint` bitmap (BGRA) to the sender. `STAGECUE_OUTPUT_SNAPSHOT=path.png` saves one frame for testing without NDI.
-- `src/main/output/ndi.ts`: the NDI sender (section 6). Loads the native module at runtime; reports NDI as unavailable if it cannot.
+- `src/main/output/output.ts` (`OutputController`): opens an off-screen, transparent window at the saved Output size, 1920×1080 (60 fps on macOS, 30 on Windows) or 3840×2160 at 30 (`enableLargerThanScreen` so the OS does not clamp it). The output page reports `outputSize` from the display settings over IPC (`output:size`) and the controller resizes the window; the band is laid out in container units, so it looks the same at both sizes. Paints are passed to the sender as described in §6.2. `STAGECUE_OUTPUT_SNAPSHOT=path.png` saves one frame for testing without NDI.
+- `src/main/output/ndi.ts`: the NDI sender (section 6). Loads the native module at runtime, so a missing build reports NDI as unavailable instead of crashing.
+- `src/main/ableton-device.ts`: copies the Max for Live device into Live's User Library, or saves a copy for another computer (Setup → Ableton, step 1).
 - Security: context isolation, no Node in renderers, sandboxed CommonJS preload, navigation and new windows blocked, all permission requests denied, CSP limits network to WebSocket and the dev server.
 
 ## 6. NDI output
@@ -116,40 +117,57 @@ The engine follows one DAW bridge. Another bridge that sends while the followed 
 
 **Considered: Python sidecar** with [`cyndilib`](https://github.com/nocarryr/cyndilib) (prebuilt wheels for macOS and Windows, no compiler). Rejected as the primary path because Electron would have to stream about 250 MB/s of raw frames (1920×1080×4 bytes×30 fps) to another process, and both installers would have to bundle a Python runtime. Keep it as the fallback if the Node module cannot be made to work on a platform. If used, reduce the cost by sending only the band's rows instead of the full frame.
 
-### 6.2 Implementation (done)
+### 6.2 Implementation
 
-- `ndi.ts` loads the module with a dynamic import inside `try`; a missing module reports “unavailable” instead of crashing. The module's type definitions use const enums, which `isolatedModules` cannot import, so `ndi.ts` declares the small interface it uses and reads `FOURCC_BGRA` and `FORMAT_TYPE_PROGRESSIVE` from the module at runtime.
-- **Frame pacing** (each point was measured; see §6.3):
-  - The output window paints at **60 fps** (`PAINT_RATE`) and NDI goes out at **30 fps** (`FRAME_RATE`). At a 30 fps paint rate Chromium delivered only about 14 paints a second, though the page drew 30.
-  - Only paints that are sent are copied (`toBitmap`, about 4 ms for 8 MB). Copying all 60 a second churned enough memory to stall the main process.
-  - A paint's image must be copied **inside its paint event**: Electron reuses its memory.
-  - A paint that arrives too soon after the last send only marks the picture as changed; if no later paint comes in time, `webContents.invalidate()` asks for a fresh one, so the last picture is never stale.
-  - Frames are sent as they are copied (one clock, `clockVideo: false`). When the picture is still, no paints arrive, and `ndi.ts` re-sends the newest frame to keep receivers fed. Two independent 30 fps clocks (painting and sending) made frames repeat and skip.
-- `STAGECUE_OUTPUT_STATS=1` logs paints per second, frames copied per second, and copy time, every 5 seconds.
-- `sender.connections()` is polled every second and shown as receivers (“On air” on Setup's ProPresenter box, and counted in the header's Outputs).
-- The main process logs `[output] First frame rendered` and `[output] Sending to NDI` once each, for troubleshooting.
+Built on the Mac and on the Windows PC separately on 11 November 2026, then merged: the Mac's sender and sizes, with the Windows paint handling.
 
-### 6.3 Verified so far (Windows 11, 11 November 2026)
+**Sender (`ndi.ts`)**
 
-With an independent NDI receiver (the same library's `find` and `receive`, as ProPresenter or Studio Monitor would connect):
+- `createNdiSender(name, frameRate)` creates the source with `clockVideo: false` and sends each frame as soon as it is handed over; if a send is in flight, the newest frame goes as soon as it finishes (never a queue). Off-screen `paint` only fires on change, so a timer resends the latest frame whenever none has gone out for a frame's time, keeping the stream continuous.
+- 1080p runs at 60 fps on macOS and 30 on Windows (`HD_RATE`); 4K at 30 everywhere (`OUTPUT_DIMENSIONS` in `output.ts`). On the Windows PC the app could not hand NDI more than about 30 frames a second, so aiming for 60 only added load and repeated frames (§6.3). Measured on an M-series MacBook with a receiver on the same machine: a change in the engine reaches the receiver in 19 ms on average (16 to 38 ms), against 31 ms average and 72 ms worst with an earlier 30 fps timer-only sender. The main process uses about 40% of one core while sending at 60 fps.
+- **Straight alpha.** Chromium paints premultiplied BGRA; NDI's BGRA is straight alpha, so `unpremultiply` divides out the partly transparent pixels before sending (reading whole pixels as 32-bit words, so fully transparent and opaque pixels cost one compare). Only frames that go out are converted: the band at 85% opacity is half a million partly transparent pixels, about 7 ms a frame here, and converting every painted frame kept the main process too busy to feed NDI (7 fps on Windows). ProPresenter's input stays on its default, straight.
+- What StageCue cannot remove (ProPresenter's buffering, the projector or LED processor) is cancelled with the `earlyMs` display setting (Style → ProPresenter output → Show cues early): the output page runs its playhead that many milliseconds ahead while playing. Previews and TVs stay exact.
+- `node-gyp` is a root dev dependency so the module's install script can compile it under pnpm.
 
-| Check        | Result                                                                                                                                                   |
-| ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Discovery    | Source listed as `PSL-GFRIMPONG-NB (StageCue)`                                                                                                           |
-| Format       | 1920×1080, FourCC BGRA, declared 30/1                                                                                                                    |
-| Rate         | 30.1 fps measured over 90 frames                                                                                                                         |
-| Transparency | Outside the band alpha 0; band at the style's opacity (85% → 217); progress bar opaque                                                                   |
-| Alpha type   | **Premultiplied**: white at 50% arrives as (128, 128, 128, 128), not (255, 255, 255, 128)                                                                |
-| Smoothness   | Progress bar over 240 frames: no backward steps, steps of 1 to 14 px, at most 7 repeated frames; unchanged with a second bridge sending at the same time |
+**Paint handling (`output.ts`)**, from what was measured on Windows (§6.3):
+
+- On Windows, Chromium delivered only about half the paints asked for (14 a second when asked for 30), so the window paints at twice the send rate there (`PAINT_FACTOR` 2); on macOS paints arrived at the rate asked for (`PAINT_FACTOR` 1).
+- Only paints that are sent are copied (`toBitmap`, about 4 ms for 8 MB at 1080p). Copying every paint churned enough memory to stall the main process.
+- A paint's image must be copied **inside its paint event**: Electron reuses its memory, and a late copy mixes frames (seen as the progress bar jumping backwards).
+- A paint that arrives too soon after the last send only marks the picture as changed; if no later paint comes in time, `webContents.invalidate()` asks for a fresh one, so the last picture is never stale.
+- The playhead is estimated with `performance.now()` against the time each report arrived, the same clock on both sides; an animation frame's timestamp runs tens of milliseconds behind it in an off-screen window. Small backward corrections are smoothed (`smoothBeat`).
+- `STAGECUE_OUTPUT_STATS=1` logs paints per second, frames copied per second, and copy time, every 5 seconds. The main process logs `[output] First frame rendered` once.
+- `OutputController` polls `connections()` every second and reports receivers (“On air” on Setup's ProPresenter box, counted in the header's Outputs).
+
+### 6.3 Verified so far
+
+All with an independent NDI receiver (the same library's `find` and `receive`, as ProPresenter or Studio Monitor would connect), choosing the source by computer name.
+
+**macOS (MacBook, M-series), 11 November 2026, before the merge:** 1920×1080 BGRA, transparent outside the band, correct colours and soft edges; a change in the engine reaches the receiver in 19 ms on average at 60 fps. Bonjour discovery and ProPresenter not yet checked.
+
+**Windows 11 (PSL-GFRIMPONG-NB), 11 November 2026, merged code (1080p at 30 fps, straight alpha, simulator at 96 BPM):**
+
+| Check        | Result                                                                                                                      |
+| ------------ | --------------------------------------------------------------------------------------------------------------------------- |
+| Discovery    | Source listed as `PSL-GFRIMPONG-NB (StageCue)`                                                                              |
+| Format       | 1920×1080, FourCC BGRA                                                                                                      |
+| Transparency | Outside the band alpha 0; band at the style's opacity (85% → 217); progress bar opaque                                      |
+| Alpha type   | **Straight**: the band's #0B0E1E at 85% arrives as (B 32, G 14, R 12, A 217); premultiplied would be about (25, 12, 9)      |
+| Rate         | About 28 frames/s sent, 16 to 22 ms per send; receiver got 240 frames in 8.6 s (a first run, still warming up, took 12.2 s) |
+| Smoothness   | Progress bar over 240 frames: no backward steps, no dropouts, 4 to 9 repeated frames                                        |
+
+What the merge measurements showed on Windows, in order:
+
+1. The Mac's sender as merged, 1080p at 60 fps, converting every painted frame: **about 7 frames/s** reached NDI, at 140 to 160 ms per send. A standalone sender sends the same frame in about 6 ms, so the time was spent waiting for a busy main process.
+2. Converting only frames that go out: about 30 frames/s, but 34 repeated frames in 240, and the app still copied about 46 frames a second it could not send.
+3. 1080p at 30 fps on Windows (the setting kept): as in the table above, matching this PC before the merge (30.1 fps, at most 7 repeats, premultiplied then).
 
 ### 6.4 Still to verify
 
-1. **NDI Studio Monitor** on Windows: visually.
-2. **ProPresenter 7** on the Mac: add the input, confirm that premultiplied is the right setting (straight would darken see-through areas), layer it over lyrics, measure the delay against Ableton.
-3. **macOS build**: `pnpm install` with Xcode Command Line Tools; confirm the module builds for arm64.
+1. **ProPresenter 7** on the Mac and on Windows: add the input with alpha on its default (straight), check the see-through areas, layer it over lyrics, measure the delay against Ableton, and try Show cues early.
+2. **NDI Studio Monitor**: visually, on both computers.
+3. **4K on Windows**: rate and smoothness with the receiver script.
 4. CPU use with the app running for a whole service.
-
-If ProPresenter cannot take premultiplied alpha, convert to straight in `ndi.ts` (divide colour by alpha for partly transparent pixels only), and measure the cost per frame.
 
 ## 6b. Screen output (no ProPresenter)
 
@@ -180,10 +198,13 @@ A Max for Live **MIDI or Audio Effect** device placed on any track (the master i
 - **`stagecue-lom.js`** uses `LiveAPI` on `live_set`:
   - read `cue_points`; for each, `name` and `time`; observe the list and each point's `name` and `time`, and send the full list on any change (`daw.markers`);
   - observe `is_playing`, `tempo`, `signature_numerator`, `signature_denominator`, and `current_song_time`;
-  - send `daw.transport` immediately on play, stop, tempo or signature change, or a jump (position change that does not match elapsed time at the tempo), and at most every 100 ms otherwise.
+  - send `daw.transport` immediately on play, stop, tempo or signature change, or a jump (position change that does not match elapsed time at the tempo), and every 50 ms while playing.
 - **`stagecue-bridge.js`** (Node for Max): connects to `ws://<host>:7417`, says `hello` with role `daw_bridge` and a stable `clientId`, keeps the sequence number, reconnects with backoff, and replays the last markers and transport after reconnecting. Mirror `integrations/simulator/src/index.ts`, which already does exactly this.
 - **Project name:** the Live Object Model does not expose the set's file name reliably; leave `project` null or add a text field on the device.
-- **Distribution:** freeze the device so its scripts are embedded in the `.amxd`. Node for Max dependencies (`ws`) must be installed with `script npm install` before freezing, or use Node's built-in `WebSocket` if the bundled Node version has it.
+- **Polling:** `current_song_time` is read every 50 ms; play, stop, tempo, signature and loop changes are observed and sent at once.
+- **Recovering:** the bridge runs a watchdog every 2 s. It retries if the retry loop ever stopped or a connection attempt hangs for 4 s, and, while connected but missing markers or transport, sends `refresh` to the `[js]` side, which starts itself if it is idle (Max reloads `[js]` when its file changes, and `[live.thisdevice]` only bangs on device load).
+- **Panel:** 300 × 169, laid out by `build-device.ts`: a status light (green connected, amber connecting, red needs attention) and message, the section under the playhead with playing or stopped, the locator count, and the address field. The bridge sends `light`, `section`, `playstate` and `locators` alongside `status`.
+- **Distribution:** the device is four files that must stay together (`StageCue.amxd`, the two scripts, `package.json`). The app's Setup page copies them into Live's User Library (`Presets/Audio Effects/Max Audio Effect/StageCue`), found from the newest `Library.cfg` in Live's preferences (`apps/desktop/src/main/ableton-device.ts`), or saves the folder anywhere for a music computer without StageCue. Packaging must ship the device folder as `resources/ableton-device`. Freezing the `.amxd` (scripts embedded) remains an option; the bridge uses Node's built-in `WebSocket`, so it has no npm dependencies to freeze.
 
 ### 7.2 Test plan in Ableton
 

@@ -1,4 +1,4 @@
-import { Check, Copy } from '@phosphor-icons/react'
+import { Check, Copy, DownloadSimple, FolderOpen, MusicNotesPlus } from '@phosphor-icons/react'
 import type { ConnectedClient } from '@stagecue/event-protocol'
 import type { OutputStatus, ScreenInfo } from '@stagecue/shared-types'
 import { useState, type ReactNode } from 'react'
@@ -106,6 +106,99 @@ const LOOPBACK_NOTE = (
   </>
 )
 
+type InstallState =
+  | { phase: 'idle' }
+  | { phase: 'working'; action: 'install' | 'save' }
+  | { phase: 'installed' }
+  | { phase: 'saved'; folder: string }
+  | { phase: 'failed'; reason: string }
+
+/** Puts the Max for Live device where Live's browser can find it, or saves a copy to hand on. */
+function InstallDevice() {
+  const [state, setState] = useState<InstallState>({ phase: 'idle' })
+  const bridge = window.stagecue
+
+  const install = async () => {
+    if (!bridge) return
+    setState({ phase: 'working', action: 'install' })
+    const result = await bridge.installAbletonDevice()
+    setState(result.ok ? { phase: 'installed' } : { phase: 'failed', reason: result.reason })
+  }
+
+  const save = async () => {
+    if (!bridge) return
+    setState({ phase: 'working', action: 'save' })
+    const result = await bridge.saveAbletonDevice()
+    if (!result) setState({ phase: 'idle' })
+    else if (result.ok) setState({ phase: 'saved', folder: result.folder })
+    else setState({ phase: 'failed', reason: result.reason })
+  }
+
+  const working = state.phase === 'working'
+  return (
+    <div className="flex flex-col gap-2.5">
+      <span>
+        Add the StageCue device to Ableton on the music computer, then drag it onto the master
+        track. Audio passes through untouched.
+      </span>
+      <div className="flex flex-wrap gap-2">
+        <Button
+          variant="primary"
+          size="sm"
+          icon={<MusicNotesPlus className="size-4" />}
+          loading={working && state.action === 'install'}
+          disabled={!bridge || working}
+          onClick={() => void install()}
+        >
+          Add to Ableton on this computer
+        </Button>
+        <Button
+          size="sm"
+          icon={<DownloadSimple className="size-4" />}
+          loading={working && state.action === 'save'}
+          disabled={!bridge || working}
+          onClick={() => void save()}
+        >
+          Save a copy for another computer
+        </Button>
+      </div>
+      {state.phase === 'installed' ? (
+        <div role="status" className="rounded-md bg-raised px-3 py-2.5 text-ink">
+          <p>
+            Added. In Live’s browser, open{' '}
+            <strong className="font-medium">
+              User Library › Presets › Audio Effects › Max Audio Effect › StageCue
+            </strong>{' '}
+            and drag StageCue onto the master track.
+          </p>
+          <p className="mt-1 text-faint">
+            To have it in every new song, save a set with it as your default: Live’s Settings, File
+            &amp; Folder, Save Current Set as Default.
+          </p>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="mt-1 -ml-2.5"
+            icon={<FolderOpen className="size-4" />}
+            onClick={() => bridge?.revealAbletonDevice()}
+          >
+            Show the files
+          </Button>
+        </div>
+      ) : state.phase === 'saved' ? (
+        <p role="status" className="rounded-md bg-raised px-3 py-2.5 text-ink">
+          Saved the StageCue folder. Copy the whole folder to the music computer, then drag it onto
+          User Library in Live’s browser. Keep the files together: the device needs all of them.
+        </p>
+      ) : state.phase === 'failed' ? (
+        <p role="alert" className="text-alert">
+          {state.reason}
+        </p>
+      ) : null}
+    </div>
+  )
+}
+
 // ---------------------------------------------------------------------------
 
 export function AbletonPanel({
@@ -159,7 +252,7 @@ export function AbletonPanel({
     >
       <Steps>
         {[
-          'On the music computer, drop StageCue.amxd onto any track in the Live set. The master track is fine; audio passes through untouched.',
+          <InstallDevice key="install" />,
           'Type the address on the right into the device and press Return. The device remembers it.',
           <>
             Add a locator where each section starts, named like{' '}
@@ -334,8 +427,8 @@ export function ProPresenterPanel({ output }: { output: OutputStatus | null }) {
         {[
           'In ProPresenter, add the NDI source on the right as a video input.',
           <>
-            Set that input’s alpha to <span className="text-ink">premultiplied</span>. With straight
-            alpha, the band’s see-through areas look too dark.
+            Leave that input’s alpha on <span className="text-ink">straight</span>, the NDI
+            standard. Set its size to match <span className="text-ink">Output size</span> in Style.
           </>,
           'Place it on a layer above the lyrics in the looks or props you choose, and size it there. Lyrics, slides, and media stay under the operator’s control.',
         ]}

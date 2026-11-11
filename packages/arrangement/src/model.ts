@@ -114,6 +114,10 @@ export function beatAt(transport: Transport, elapsedMs: number): number {
 // Display settings
 // ---------------------------------------------------------------------------
 
+export const OUTPUT_SIZES = ['1080p', '4k'] as const
+export type OutputSize = (typeof OUTPUT_SIZES)[number]
+export const MAX_EARLY_MS = 500
+
 const hexColor = z.string().regex(/^#[0-9a-f]{6}$/i, 'Use a six-digit hex colour.')
 
 /*
@@ -131,6 +135,13 @@ export const displaySettingsSchema = z.object({
   showNext: z.boolean().default(true),
   showCountdown: z.boolean().default(true),
   showProgress: z.boolean().default(true),
+  /** The NDI picture size. Match ProPresenter's output; 4K costs about four times the work. */
+  outputSize: z.enum(OUTPUT_SIZES).default('1080p'),
+  /**
+   * Milliseconds the output runs ahead of the playhead while playing, to make up
+   * for delay after StageCue: ProPresenter's buffering, the projector or LED wall.
+   */
+  earlyMs: z.int().min(0).max(MAX_EARLY_MS).default(0),
 })
 export type DisplaySettings = z.output<typeof displaySettingsSchema>
 

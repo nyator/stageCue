@@ -1,7 +1,13 @@
-import { app, BrowserWindow, ipcMain, session, shell } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, session, shell } from 'electron'
 import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import {
+  installedFolder,
+  installIntoUserLibrary,
+  saveCopy,
+  type InstallResult,
+} from './ableton-device'
 import { OutputController } from './output/output'
 import { ScreenOutputs } from './screens'
 
@@ -101,6 +107,33 @@ void app.whenReady().then(() => {
   })
 
   ipcMain.handle('output:status', () => output.status)
+  ipcMain.on('output:size', (_event, size: unknown) => {
+    if (size === '1080p' || size === '4k') output.setSize(size)
+  })
+  ipcMain.handle('ableton:install', () => installIntoUserLibrary())
+  ipcMain.handle('ableton:save-copy', async (event): Promise<InstallResult | null> => {
+    const owner = BrowserWindow.fromWebContents(event.sender)
+    const options = {
+      title: 'Save the Ableton device',
+      buttonLabel: 'Save here',
+      properties: ['openDirectory', 'createDirectory'] as Array<
+        'openDirectory' | 'createDirectory'
+      >,
+    }
+    const choice = owner
+      ? await dialog.showOpenDialog(owner, options)
+      : await dialog.showOpenDialog(options)
+    const folder = choice.filePaths[0]
+    if (choice.canceled || !folder) return null
+    const result = await saveCopy(folder)
+    if (result.ok) shell.showItemInFolder(path.join(result.folder, 'StageCue.amxd'))
+    return result
+  })
+  ipcMain.on('ableton:reveal', () => {
+    void installedFolder().then((folder) =>
+      shell.showItemInFolder(path.join(folder, 'StageCue.amxd')),
+    )
+  })
 
   screens = new ScreenOutputs()
   // The renderer is trusted, but check what crosses the bridge anyway.

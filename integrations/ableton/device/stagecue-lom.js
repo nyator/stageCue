@@ -6,16 +6,17 @@
  * functions. Network I/O is not possible here; that is why the bridge exists.
  *
  * Outlet 0 sends:
- *   markers <json>    { markers: [{ name, beat }] }, on load and whenever locators change
+ *   markers <json>    { markers: [{ name, beat }] }, on load, whenever locators change,
+ *                     and when the bridge asks (refresh)
  *   transport <json>  { playing, beat, tempo, timeSignature }, on any change and every
- *                     100 ms while playing (the rate the protocol asks for)
+ *                     50 ms while playing, so a jump on the timeline shows quickly
  */
 
 autowatch = 1
 inlets = 1
 outlets = 1
 
-var POLL_MS = 100
+var POLL_MS = 50
 
 var song = null
 var poll = null
@@ -99,6 +100,20 @@ function stop() {
   forget(cueObservers)
   propertyObservers = []
   cueObservers = []
+}
+
+/**
+ * The bridge asks for this when it starts, on every reconnect, and until it has
+ * heard from Live: send the markers and transport again, in case they went out
+ * before it was listening. Also starts this script if it has not started, which
+ * happens after Max reloads it (an updated device file): [live.thisdevice] only
+ * bangs when the device loads.
+ */
+function refresh() {
+  if (!song) start()
+  if (!song) return
+  cueListDirty = true
+  sendTransport()
 }
 
 /** Live calls this when the device is deleted. */

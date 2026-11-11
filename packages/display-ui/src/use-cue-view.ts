@@ -6,22 +6,28 @@ export function useLive(connection: EngineConnection): LiveSnapshot | null {
   return useSyncExternalStore(connection.subscribeLive, connection.getLive)
 }
 
-/** The playhead estimated now, from the newest report. */
-function estimateNow(connection: EngineConnection): number | null {
+/** The playhead estimated now (plus earlyMs), from the newest report. */
+function estimateNow(connection: EngineConnection, earlyMs: number): number | null {
   const live = connection.getLive()
   const transport = live?.state.transport
   if (!live || !transport) return null
   // performance.now(), not the animation frame's timestamp: receivedAt uses this
   // clock, and off-screen windows stamp frames tens of milliseconds behind it.
-  return beatAt(transport, performance.now() - live.receivedAt)
+  return beatAt(transport, performance.now() - live.receivedAt + earlyMs)
 }
 
 /**
  * The cue to show right now. While the DAW plays, this re-renders every
  * animation frame and moves the playhead forward from the last report, so the
  * countdown, pulse, and progress bar stay smooth between network updates.
+ *
+ * `earlyMs` runs the playhead that far ahead while playing, to cancel out delay
+ * further down the line (the NDI output uses it; previews and TVs stay exact).
  */
-export function useCueView(connection: EngineConnection): {
+export function useCueView(
+  connection: EngineConnection,
+  earlyMs = 0,
+): {
   view: CueView
   live: LiveSnapshot | null
   /** The playhead in quarter notes, smoothed between reports. Null before the DAW reports. */
@@ -37,7 +43,7 @@ export function useCueView(connection: EngineConnection): {
   useEffect(() => {
     if (!playing) return
     let frame = requestAnimationFrame(function loop() {
-      const estimate = estimateNow(connection)
+      const estimate = estimateNow(connection, earlyMs)
       if (estimate !== null) setShownBeat((previous) => smoothBeat(previous, estimate))
       frame = requestAnimationFrame(loop)
     })
@@ -45,7 +51,7 @@ export function useCueView(connection: EngineConnection): {
       cancelAnimationFrame(frame)
       setShownBeat(null)
     }
-  }, [playing, connection])
+  }, [playing, connection, earlyMs])
 
   const playhead = transport
     ? { ...transport, beat: playing && shownBeat !== null ? shownBeat : transport.beat }
