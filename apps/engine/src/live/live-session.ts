@@ -26,6 +26,7 @@ export class LiveSession {
   #markers: Marker[] = []
   #transport: { value: Transport; receivedAt: number } | null = null
   #mode: CueMode = { mode: 'auto' }
+  #hidden = false
 
   constructor(now: () => number = Date.now) {
     this.#now = now
@@ -114,6 +115,15 @@ export class LiveSession {
     return this.#mode
   }
 
+  /** The media team's switch. Resets to shown when the engine restarts. */
+  setHidden(hidden: boolean): { hidden: boolean } {
+    if (this.#hidden !== hidden) {
+      this.#hidden = hidden
+      this.#changed()
+    }
+    return { hidden }
+  }
+
   snapshot(): LiveState {
     const transport = this.#transport
       ? { ...this.#transport.value, beat: this.#currentBeat()! }
@@ -127,6 +137,7 @@ export class LiveSession {
       markers: this.#markers,
       transport,
       mode: this.#mode,
+      hidden: this.#hidden,
     }
   }
 }

@@ -3,5 +3,11 @@
   "semi": false,
   "singleQuote": true,
   "trailingComma": "all",
-  "endOfLine": "lf"
+  "endOfLine": "lf",
+  "overrides": [
+    {
+      "files": "integrations/ableton/device/stagecue-lom.js",
+      "options": { "trailingComma": "es5" }
+    }
+  ]
 }

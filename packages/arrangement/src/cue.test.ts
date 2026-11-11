@@ -229,3 +229,59 @@ describe('display settings', () => {
     })
   })
 })
+
+describe('looping', () => {
+  // Intro 0, Verse 1 16, Chorus 48, "-" 80. A loop around the whole chorus:
+  const chorusLoop = { start: 48, end: 80 }
+  const inLoop = (beat: number, loop: { start: number; end: number } | null = chorusLoop) => ({
+    ...at(beat),
+    loop,
+  })
+
+  it('wraps the estimated playhead at the loop end instead of running into the next section', () => {
+    const transport: Transport = {
+      playing: true,
+      beat: 79,
+      tempo: 120,
+      timeSignature: fourFour,
+      loop: chorusLoop,
+    }
+    // 1 s at 120 BPM is 2 beats: 79 → 81 wraps to 49.
+    expect(beatAt(transport, 1_000)).toBe(49)
+    expect(beatAt({ ...transport, loop: null }, 1_000)).toBe(81)
+    // Already past the loop end: the DAW plays on, so does the estimate.
+    expect(beatAt({ ...transport, beat: 90 }, 1_000)).toBe(92)
+  })
+
+  it('shows the looped section again as next, counting down to the loop end', () => {
+    const view = computeCueView(cues, inLoop(72), { mode: 'auto' })
+    expect(view.current?.label).toBe('Chorus')
+    expect(view.next?.label).toBe('Chorus')
+    expect(view.countdown).toEqual({ bars: 2, finalBeats: null })
+    expect(view.progress).toBe(0.75)
+  })
+
+  it('counts down to the loop end when the loop jumps back to an earlier section', () => {
+    // Loop from the verse to halfway through the chorus.
+    const view = computeCueView(cues, inLoop(60, { start: 16, end: 64 }), { mode: 'auto' })
+    expect(view.current?.label).toBe('Chorus')
+    expect(view.next?.label).toBe('Verse 1')
+    expect(view.countdown).toEqual({ bars: 1, finalBeats: 4 })
+  })
+
+  it('shows no next section for a vamp looping inside one section', () => {
+    const view = computeCueView(cues, inLoop(58, { start: 56, end: 64 }), { mode: 'auto' })
+    expect(view.current?.label).toBe('Chorus')
+    expect(view.next).toBeNull()
+    expect(view.countdown).toBeNull()
+  })
+
+  it('ignores a loop that ends after the next marker, or that the playhead is past', () => {
+    expect(
+      computeCueView(cues, inLoop(20, { start: 0, end: 64 }), { mode: 'auto' }).next?.label,
+    ).toBe('Chorus')
+    expect(
+      computeCueView(cues, inLoop(20, { start: 0, end: 8 }), { mode: 'auto' }).next?.label,
+    ).toBe('Chorus')
+  })
+})

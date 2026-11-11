@@ -23,6 +23,7 @@ function createHandlers(db: DatabaseSync, live: LiveSession): Handlers {
     'settings.saveDisplay': (settings) => saveDisplaySettings(db, settings),
     'devices.list': () => listDevices(db),
     'cue.override': (action) => live.override(action),
+    'display.setHidden': ({ hidden }) => live.setHidden(hidden),
   }
 }
 

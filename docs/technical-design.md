@@ -71,9 +71,11 @@ The bridge reports the transport about ten times a second. Between reports, `bea
 - network jitter does not cause stutter;
 - on disconnect, the engine and clients freeze the transport at the estimated position (`playing: false`), so nothing keeps counting.
 
-### 3.5 Director override (`LiveSession.override`)
+### 3.5 Hide band and director override (`LiveSession`)
 
-`hold` takes manual control at the section on screen; `next`, `previous`, `select` move from there; `auto` returns control. Manual mode persists until `auto`. The engine is the single owner of the mode, so every display agrees.
+`setHidden` is the media team's switch, held by the engine so every output agrees; it is not stored and resets on restart. Outputs render nothing while hidden; the app's preview shows the band faded.
+
+`override` is unused by the app and kept for a future director tool: `hold` takes manual control at the section on screen; `next`, `previous`, `select` move from there; `auto` returns control. Manual mode persists until `auto`. The engine is the single owner of the mode, so every display agrees.
 
 ## 4. Engine (`apps/engine`)
 

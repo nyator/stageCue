@@ -5,11 +5,11 @@ import { Band } from './Band'
 
 /** Rendered off screen at 1920×1080; the main process sends its frames out over NDI. */
 export function OutputView() {
-  const { view } = useCueView()
+  const { view, live } = useCueView()
   const settings = useEngineQuery('settings.getDisplay', {}).data ?? DEFAULT_DISPLAY_SETTINGS
   return (
     <div className="@container relative h-full w-full">
-      <Band view={view} settings={settings} />
+      {live?.state.hidden ? null : <Band view={view} settings={settings} />}
     </div>
   )
 }

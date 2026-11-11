@@ -18,13 +18,32 @@ export const markerSchema = z.object({
 })
 export type Marker = z.infer<typeof markerSchema>
 
+/** The DAW's loop region, while looping is switched on. */
+export const loopSchema = z.object({
+  start: z.number().min(0).max(1_000_000),
+  end: z.number().min(0).max(1_000_000),
+})
+export type Loop = z.infer<typeof loopSchema>
+
 export const transportSchema = z.object({
   playing: z.boolean(),
   beat: z.number().min(-1_000).max(1_000_000),
   tempo: z.number().min(10).max(999),
   timeSignature: timeSignatureSchema,
+  /** Null or absent when looping is off. Older bridges do not send it. */
+  loop: loopSchema.nullable().optional(),
 })
 export type Transport = z.infer<typeof transportSchema>
+
+/**
+ * The loop the playhead will wrap around, or null. A loop only applies while
+ * the playhead is before its end: past the end, the DAW plays on normally.
+ */
+export function activeLoop(transport: Pick<Transport, 'beat' | 'loop'>): Loop | null {
+  const loop = transport.loop
+  if (!loop || loop.end - loop.start < 1e-6) return null
+  return transport.beat < loop.end - 1e-6 ? loop : null
+}
 
 /** Separates the section name from the extra line: "Chorus | Full choir". */
 export const DETAIL_SEPARATOR = '|'
@@ -63,10 +82,17 @@ export function beatUnit(timeSignature: TimeSignature): number {
   return 4 / timeSignature.denominator
 }
 
-/** The playhead now, estimated from the last report. Stopped transports do not move. */
+/**
+ * The playhead now, estimated from the last report. Stopped transports do not
+ * move. Inside a loop, the estimate wraps back to the loop start the way the DAW
+ * does, instead of running on into the next section until the next report.
+ */
 export function beatAt(transport: Transport, elapsedMs: number): number {
   if (!transport.playing) return transport.beat
-  return transport.beat + (Math.max(0, elapsedMs) / 60_000) * transport.tempo
+  const beat = transport.beat + (Math.max(0, elapsedMs) / 60_000) * transport.tempo
+  const loop = activeLoop(transport)
+  if (!loop || beat < loop.end) return beat
+  return loop.start + ((beat - loop.end) % (loop.end - loop.start))
 }
 
 // ---------------------------------------------------------------------------

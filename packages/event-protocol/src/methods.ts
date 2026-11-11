@@ -52,6 +52,16 @@ export const methods = {
     mutates: true,
   },
   'devices.list': { params: empty, result: z.array(deviceSchema), mutates: false },
+  /**
+   * Takes the band off the output, or puts it back, whatever Ableton does. For
+   * the media team: when only the click is playing, or the service goes off
+   * script. The new state arrives as live.state.
+   */
+  'display.setHidden': {
+    params: z.strictObject({ hidden: z.boolean() }),
+    result: z.strictObject({ hidden: z.boolean() }),
+    mutates: false,
+  },
   /** Changes what the display shows. The new state arrives as live.state. */
   'cue.override': { params: overrideActionSchema, result: cueModeSchema, mutates: false },
 } as const satisfies Record<string, MethodSpec>

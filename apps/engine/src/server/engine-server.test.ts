@@ -257,6 +257,7 @@ describe('engine server', () => {
       markers: [{ name: 'Intro', beat: 0 }],
       transport: null,
       mode: { mode: 'auto' as const },
+      hidden: false,
     }
     const client = await connect(await start({ liveSnapshot: () => snapshot }))
     client.hello()

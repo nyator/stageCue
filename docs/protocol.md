@@ -113,9 +113,12 @@ Either `{ requestId, ok: true, result }` or `{ requestId, ok: false, error: { co
 | `settings.getDisplay`  | The band style                                                                                            |
 | `settings.saveDisplay` | Saves the band style; every client then receives `data.changed`                                           |
 | `devices.list`         | Every computer that has connected                                                                         |
+| `display.setHidden`    | `{ hidden }`: takes the band off the output, or puts it back. Every client receives a `live.state`        |
 | `cue.override`         | Director control: `auto`, `hold`, `next`, `previous`, or `select` with an `index` into the sorted markers |
 
-`hold` freezes the section on screen. `next`, `previous`, and `select` move from it. The display stays under the director's control until `auto`, whatever Ableton does in the meantime. The result is the new mode; every client also receives a `live.state`.
+`display.setHidden` is the media team's switch: outputs draw nothing while `hidden` is true, whatever Ableton does. It resets to shown when the engine restarts.
+
+`cue.override` is not used by the StageCue app (the screen follows Ableton). It remains for a future director tool: `hold` freezes the section on screen; `next`, `previous`, and `select` move from it; the display stays under manual control until `auto`. The result is the new mode; every client also receives a `live.state`.
 
 ### `data.changed` (engine → client)
 
@@ -142,14 +145,15 @@ Names: the text before `|` is the section; the text after it is the extra line. 
 
 Send on play, stop, seek, tempo or time signature change, and about ten times a second while playing.
 
-| Field           | Type                                                      |
-| --------------- | --------------------------------------------------------- |
-| `playing`       | boolean                                                   |
-| `beat`          | number, the playhead                                      |
-| `tempo`         | number, 10–999                                            |
-| `timeSignature` | `{ numerator: 1–32, denominator: 1, 2, 4, 8, 16, or 32 }` |
+| Field           | Type                                                                 |
+| --------------- | -------------------------------------------------------------------- |
+| `playing`       | boolean                                                              |
+| `beat`          | number, the playhead                                                 |
+| `tempo`         | number, 10–999                                                       |
+| `timeSignature` | `{ numerator: 1–32, denominator: 1, 2, 4, 8, 16, or 32 }`            |
+| `loop`          | `{ start, end }` while Ableton's loop is on; null or absent when off |
 
-The engine does not need a steady stream to stay accurate: between reports, it and every display move the playhead forward with the tempo. When the bridge disconnects, the engine stops the clock at the estimated position.
+Inside an active loop (the playhead before `end`), the engine and displays wrap the estimated playhead back to `start` at `end`, and show the section the loop returns to as next. The engine does not need a steady stream to stay accurate: between reports, it and every display move the playhead forward with the tempo. When the bridge disconnects, the engine stops the clock at the estimated position.
 
 ### `live.state` (engine → client)
 
@@ -161,6 +165,7 @@ Sent right after `welcome`, then on every change.
 | `markers`   | as last received                                                 |
 | `transport` | as last received, with `beat` moved forward to `sentAt`; or null |
 | `mode`      | `{ mode: "auto" }` or `{ mode: "manual", index }`                |
+| `hidden`    | boolean; true while the media team has hidden the band           |
 
 Displays compute the cue themselves (`computeCueView` in `packages/arrangement`), moving `beat` forward from the moment they received the message.
 

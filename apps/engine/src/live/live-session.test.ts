@@ -26,7 +26,22 @@ describe('LiveSession', () => {
       markers: [],
       transport: null,
       mode: { mode: 'auto' },
+      hidden: false,
     })
+  })
+
+  it('hides and shows the band, telling listeners only when it changes', () => {
+    const { live } = session()
+    let changes = 0
+    live.onChange(() => {
+      changes += 1
+    })
+    expect(live.setHidden(true)).toEqual({ hidden: true })
+    expect(live.setHidden(true)).toEqual({ hidden: true })
+    expect(live.snapshot().hidden).toBe(true)
+    live.setHidden(false)
+    expect(live.snapshot().hidden).toBe(false)
+    expect(changes).toBe(2)
   })
 
   it('moves the playhead forward with the tempo between reports', () => {

@@ -1,4 +1,4 @@
-import { markerSchema, transportSchema } from '@stagecue/arrangement'
+import { loopSchema, markerSchema, transportSchema } from '@stagecue/arrangement'
 import { z } from 'zod'
 import { cueModeSchema, METHOD_NAMES, requestErrorCodeSchema } from './methods.ts'
 import { clientRoleSchema } from './roles.ts'
@@ -158,6 +158,7 @@ export const dawTransportMessageSchema = clientMessage(
   z.strictObject({
     ...transportSchema.shape,
     timeSignature: z.strictObject(transportSchema.shape.timeSignature.shape),
+    loop: z.strictObject(loopSchema.shape).nullable().optional(),
   }),
 )
 
@@ -174,6 +175,8 @@ export const liveStateSchema = z.object({
   markers: z.array(markerSchema),
   transport: transportSchema.nullable(),
   mode: cueModeSchema,
+  /** The media team took the band off screen. Older engines do not send it. */
+  hidden: z.boolean().default(false),
 })
 export type LiveState = z.infer<typeof liveStateSchema>
 

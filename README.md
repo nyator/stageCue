@@ -21,7 +21,7 @@ Ableton Live                           StageCue (engine + app)
 | StageCue app (Live, Style, Setup)    | Working with the simulator                                                   |
 | Output page (1920×1080, transparent) | Working; verified by snapshot                                                |
 | NDI sending                          | Not built yet. Needs the NDI SDK and Visual Studio C++ tools on this machine |
-| Max for Live device                  | Not built yet                                                                |
+| Max for Live device                  | Working in Live 12 Suite                                                     |
 
 ## Marking up a song in Ableton
 
@@ -33,7 +33,18 @@ Add a locator where each section starts, and name it:
 | `Chorus \| Full choir` | **CHORUS** with “Full choir” under it |
 | `-`                    | Nothing (clears the band)             |
 
-During each section the band shows what comes next and how many bars are left; in the last bar it counts 4, 3, 2, 1 on the beat. The director can hold a section, step forward or back, or pick any locator, and then hand control back to Ableton.
+During each section the band shows what comes next and how many bars are left; in the last bar it counts 4, 3, 2, 1 on the beat. Inside a loop, it shows where the loop goes back to. The screen always follows Ableton: when the service goes off script, the playback engineer stops Ableton, and the media team can hide the band from the Live page until Ableton is back in step.
+
+## Connecting Ableton
+
+Needs Live 12 Suite (or Live 12 with Max for Live). Max 9, which comes with it, provides everything the device uses.
+
+1. Start StageCue (`pnpm dev`). Stop the simulator if it is running.
+2. Drag `integrations/ableton/device/StageCue.amxd` from Finder onto any track in Live. The master track is fine; audio passes through untouched.
+3. In the device's address field, type the engine's address and press Return: `127.0.0.1:7417` when StageCue runs on the same computer, or the address the engine prints at startup when it runs on another one. The device remembers it.
+4. The device shows **Connected**. Press play.
+
+Keep `StageCue.amxd` next to `stagecue-lom.js`, `stagecue-bridge.js`, and `package.json`; the device loads its scripts from its own folder. After changing the device's layout in `integrations/ableton/src/build-device.ts`, rebuild it with `pnpm --filter @stagecue/ableton build:device`.
 
 ## Requirements
 
@@ -95,7 +106,7 @@ packages/arrangement     Markers, countdown, and playhead estimation (pure, test
 packages/event-protocol  Every network message, validated on both ends
 packages/shared-types    Types shared between Electron processes
 integrations/simulator   Pretend Ableton for testing
-integrations/ableton     Max for Live device (next)
+integrations/ableton     Max for Live device
 docs/                    Architecture and protocol
 ```
 

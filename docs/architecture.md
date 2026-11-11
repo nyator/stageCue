@@ -5,7 +5,7 @@ StageCue is a messenger. The arrangement lives in Ableton as locators on the arr
 ```text
 MUSIC COMPUTER                          MEDIA COMPUTER
 Ableton Live                            ┌─────────────────────────────────────────┐
- └ Max for Live device ── WebSocket ──► │ engine: live state, director override   │
+ └ Max for Live device ── WebSocket ──► │ engine: live state, hide/show band      │
    (role daw_bridge)      Wi-Fi or LAN  │   │ live.state                          │
                                         │   ├──► StageCue app (preview, controls) │
                                         │   └──► output page, off screen          │
@@ -27,7 +27,7 @@ A standalone Node.js process. It:
 
 - accepts WebSocket clients, validates every message, and rejects stale ones;
 - takes `daw.markers` and `daw.transport` only from connections that identified as `daw_bridge`;
-- keeps the live state in `LiveSession`: markers, the last transport report, and whether the director has taken over;
+- keeps the live state in `LiveSession`: markers, the last transport report, and whether the media team has hidden the band;
 - broadcasts `live.state` to every client on each change;
 - stores the band style and the list of devices that have connected, in SQLite.
 
@@ -37,7 +37,7 @@ It listens on all interfaces by default because the Ableton device connects from
 
 Electron with a React renderer, built by Vite, styled with Tailwind CSS.
 
-- **Live**: preview of the band, director controls (previous, hold, next, follow Ableton, with keyboard shortcuts), and the locator list.
+- **Live**: preview of the band, Hide band / Show band, and the locator list with the current section highlighted.
 - **Style**: colours, opacity, size, position, and which parts of the band to show. Saved in the engine, so every computer uses the same style.
 - **Setup**: how to connect Ableton and ProPresenter, the engine address, and devices.
 

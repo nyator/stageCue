@@ -75,16 +75,17 @@ StageCue reads the section markers from the DAW as the song plays and shows the 
 | B9  | Every line keeps its space, so the band does not jump in size as sections change.                                               |
 | B10 | The layout reads at a distance: high contrast, few elements, one centred column.                                                |
 
-### 6.3 Director control
+### 6.3 Media control
 
-| ID  | Requirement                                                                                                  |
-| --- | ------------------------------------------------------------------------------------------------------------ |
-| D1  | Hold: freeze the section on screen, whatever Ableton does.                                                   |
-| D2  | Next and Previous: step through sections by hand.                                                            |
-| D3  | Select: jump to any locator from the list.                                                                   |
-| D4  | Follow Ableton: give control back. Manual control never ends on its own.                                     |
-| D5  | While under manual control, the band hides the countdown and progress, since they no longer match the music. |
-| D6  | Keyboard shortcuts for all of the above (← → H F).                                                           |
+The screen follows Ableton; nobody steps through sections by hand. When the service goes off script, the playback engineer stops Ableton or plays only the click, and the media team decides whether the band stays on screen.
+
+| ID  | Requirement                                                                                                        |
+| --- | ------------------------------------------------------------------------------------------------------------------ |
+| D1  | Hide band: take the band off the output, whatever Ableton does. The preview shows it faded, labelled as hidden.    |
+| D2  | Show band: put it back, showing wherever Ableton is now.                                                           |
+| D3  | Hiding lasts until someone shows the band again, or the engine restarts.                                           |
+| D4  | Loops: inside an Ableton loop, the band shows where the loop goes back to and counts down to the loop end.         |
+| D5  | Director controls (hold, next, previous, select) are out of scope for the media app; the engine keeps them unused. |
 
 ### 6.4 Style (set once, used everywhere)
 
@@ -118,7 +119,7 @@ StageCue reads the section markers from the DAW as the song plays and shows the 
 1. **Before service.** The music director opens the Live set. Each song already has locators: `Intro`, `Verse 1 | Lead only`, `Chorus | Full choir`, `Bridge | Men first`. The StageCue device on the master track shows “Connected”.
 2. **Media computer.** StageCue starts with the computer. ProPresenter's layouts already include the StageCue NDI input above the lyrics.
 3. **During the song.** The choir sees VERSE 1 / Lead only, with “Next CHORUS in 4 bars”. In the last bar, 4, 3, 2, 1 pulses on the beat, the bar fills, and CHORUS appears exactly on the downbeat.
-4. **Off script.** The pastor asks for the chorus again. The director presses Hold, then selects Chorus. When the band catches up, they press Follow Ableton.
+4. **Off script.** The pastor asks for the chorus again. The playback engineer stops Ableton, or solos the click; the media operator presses Hide band. When Ableton is back in step, they press Show band.
 
 ## 8. Success measures
 
@@ -137,12 +138,12 @@ StageCue reads the section markers from the DAW as the song plays and shows the 
 
 ## 10. Milestones
 
-| #   | Milestone                                                               | State |
-| --- | ----------------------------------------------------------------------- | ----- |
-| 1   | Engine, protocol, countdown, progress, director control, app, simulator | Done  |
-| 2   | NDI output from the app, verified in NDI Studio Monitor                 | Next  |
-| 3   | Max for Live device, verified in Ableton                                | Next  |
-| 4   | End-to-end test on one Mac: Ableton, StageCue, ProPresenter 7           |       |
-| 5   | Two-computer test over Wi-Fi, with deliberate drops                     |       |
-| 6   | Installers for macOS and Windows, engine started by the app             |       |
-| 7   | Rehearsal, then first Sunday                                            |       |
+| #   | Milestone                                                            | State |
+| --- | -------------------------------------------------------------------- | ----- |
+| 1   | Engine, protocol, countdown, progress, media control, app, simulator | Done  |
+| 2   | NDI output from the app, verified in NDI Studio Monitor              | Next  |
+| 3   | Max for Live device, verified in Ableton                             | Next  |
+| 4   | End-to-end test on one Mac: Ableton, StageCue, ProPresenter 7        |       |
+| 5   | Two-computer test over Wi-Fi, with deliberate drops                  |       |
+| 6   | Installers for macOS and Windows, engine started by the app          |       |
+| 7   | Rehearsal, then first Sunday                                         |       |
