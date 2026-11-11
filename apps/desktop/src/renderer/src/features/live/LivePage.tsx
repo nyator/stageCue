@@ -257,7 +257,7 @@ function RunningOrder({
                 {cue.blank ? 'Clear display' : cue.label}
               </span>
               {cue.detail && !cue.blank ? (
-                <span className="block truncate text-xs text-faint">{cue.detail}</span>
+                <span className="block truncate text-[13px] text-muted">{cue.detail}</span>
               ) : null}
             </span>
             <span className="relative text-[11px] font-semibold tracking-[0.1em] uppercase">

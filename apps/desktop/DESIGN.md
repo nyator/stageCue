@@ -28,6 +28,22 @@ The app follows the tokens in `src/renderer/src/styles.css` (dark, tinted neutra
 
 **Owner's calls (11 November 2026):** no beat lamps on Live; Live and Style must fit the window with only their right column scrolling; no empty gap between a page's columns.
 
+## The band (what the choir sees)
+
+`packages/display-ui/src/Band.tsx`, sent to ProPresenter over NDI; the TV page (`FullScreenCue.tsx`) follows the same rules.
+
+A singer looks up for half a second, mid-song. Singers said the first band had a lot going on, so it now shows one thing most of the time.
+
+1. **Most of the song: only now.** The current section, centred, with its extra line (the choir's instruction, such as Full choir) underneath, and the thin progress bar. No NOW label, no NEXT, no numbers.
+2. **The last bars: what is next.** NEXT fades in at the right only in the last 4 bars before a change (`NEXT_LEAD_BARS` in `packages/display-ui/src/timing.ts`, tested), as a small red NEXT with the bars left, and the next section's name. In the final bar the red 4, 3, 2, 1 pulses beside it. NEXT's extra line is not shown; it appears once that section starts.
+3. **Stopped: only now.** With Ableton stopped there is no countdown, so NEXT stays hidden.
+4. **Nothing moves except time.** The current section never shifts (equal side columns keep it centred). The only motion is the progress bar (`scaleX`), the pulse (`scale`), and NEXT fading in (`opacity`), all cheap to render for NDI. No glow or shadow: they repaint the whole band on every frame.
+5. **Nothing to decode.** Words and one number. No arrows or icons (an arrow was tried and removed at the owner's request, 11 November 2026).
+6. **Red means time.** The highlight colour marks NEXT, the progress bar, and the pulse, nothing else.
+7. **Long names stay in their lane.** A long NEXT name is cut short with an ellipsis; it never runs into the current section.
+
+Sizes are percent of the output width, times Style → Text size: current section 4.8, its extra line 3, NEXT's name 3.6, labels 1.5, progress bar 0.9.
+
 ## Live page
 
 - **Monitor:** what the room sees, with the band faded when hidden. Its tally chip is the first thing to read.

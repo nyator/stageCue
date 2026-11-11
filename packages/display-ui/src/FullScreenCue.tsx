@@ -1,5 +1,6 @@
 import type { CueView, DisplaySettings } from '@stagecue/arrangement'
 import type { CSSProperties } from 'react'
+import { changeIsNear } from './timing.ts'
 
 interface FullScreenCueProps {
   view: CueView
@@ -40,6 +41,9 @@ export function FullScreenCue({ view, settings, status = null }: FullScreenCuePr
   const bars = settings.showCountdown && countdown && finalBeats === null ? countdown.bars : null
   const strength = finalBeats !== null ? pulse(view.beatPhase) : 0
   const nextLabel = leadIsNext ? null : next?.label
+  // Like the band: NEXT only in the last bars before a change, so most of the time
+  // the screen shows just the section the choir is in. Its row keeps its height.
+  const near = nextLabel !== undefined && nextLabel !== null && changeIsNear(view)
 
   return (
     <div
@@ -69,8 +73,9 @@ export function FullScreenCue({ view, settings, status = null }: FullScreenCuePr
 
           {settings.showDetail ? (
             <div
-              className="max-w-full truncate leading-tight font-medium"
-              style={{ ...text(5.6), opacity: 0.82 }}
+              // The choir's instruction for the section: full strength, like the band.
+              className="max-w-full truncate leading-tight font-semibold"
+              style={text(6.4)}
             >
               {/* A non-breaking space keeps the line's height when there is no extra line. */}
               {lead.detail ?? ' '}
@@ -80,7 +85,14 @@ export function FullScreenCue({ view, settings, status = null }: FullScreenCuePr
           {settings.showNext || settings.showCountdown ? (
             <div
               className="flex items-center justify-center"
-              style={{ height: min(14), gap: min(3), marginTop: min(3) }}
+              style={{
+                height: min(14),
+                gap: min(3),
+                marginTop: min(3),
+                opacity: near ? 1 : 0,
+                transition: 'opacity 400ms ease-out',
+              }}
+              aria-hidden={!near}
             >
               {settings.showNext && nextLabel ? (
                 <>
@@ -111,8 +123,8 @@ export function FullScreenCue({ view, settings, status = null }: FullScreenCuePr
                     height: min(13),
                     color: settings.background,
                     background: settings.accent,
-                    transform: `scale(${1 + 0.14 * strength})`,
-                    boxShadow: `0 0 ${min(6 * strength)} ${mix(settings.accent, 70 * strength)}`,
+                    // Scale only: a glow would repaint the screen on every frame.
+                    transform: `scale(${1 + 0.12 * strength})`,
                   }}
                 >
                   {finalBeats}
