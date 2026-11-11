@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron'
-import type { DesktopBridge, OutputStatus } from '@stagecue/shared-types'
+import type { DesktopBridge, DeviceCopyResult, OutputStatus } from '@stagecue/shared-types'
 
 const DEVICE_NAME_FLAG = '--stagecue-device-name='
 const deviceName =
@@ -14,6 +14,11 @@ const stagecue = {
     node: process.versions.node ?? 'unknown',
   },
   getOutputStatus: () => ipcRenderer.invoke('output:status') as Promise<OutputStatus>,
+  setOutputSize: (size) => ipcRenderer.send('output:size', size),
+  installAbletonDevice: () => ipcRenderer.invoke('ableton:install') as Promise<DeviceCopyResult>,
+  saveAbletonDevice: () =>
+    ipcRenderer.invoke('ableton:save-copy') as Promise<DeviceCopyResult | null>,
+  revealAbletonDevice: () => ipcRenderer.send('ableton:reveal'),
   onOutputStatus: (listener) => {
     const handler = (_event: Electron.IpcRendererEvent, status: OutputStatus) => listener(status)
     ipcRenderer.on('output:status', handler)

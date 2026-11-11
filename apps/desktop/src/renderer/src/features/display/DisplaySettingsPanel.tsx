@@ -1,4 +1,4 @@
-import type { DisplaySettings } from '@stagecue/arrangement'
+import { MAX_EARLY_MS, type DisplaySettings } from '@stagecue/arrangement'
 import { useId } from 'react'
 import { Switch } from '../../ui/field'
 
@@ -31,6 +31,49 @@ export function DisplaySettingsPanel({ value, onChange }: DisplaySettingsPanelPr
           ))}
         </div>
       </fieldset>
+
+      <fieldset>
+        <legend className="mb-2 text-[13px] font-medium text-muted">Output size</legend>
+        <div className="grid grid-cols-2 gap-1 rounded-md bg-raised p-1">
+          {(
+            [
+              ['1080p', '1080p (HD)'],
+              ['4k', '4K'],
+            ] as const
+          ).map(([size, label]) => (
+            <button
+              key={size}
+              type="button"
+              aria-pressed={value.outputSize === size}
+              onClick={() => set('outputSize', size)}
+              className={`h-7 rounded text-[13px] font-medium transition-colors duration-150 ${
+                value.outputSize === size ? 'bg-hover text-ink' : 'text-muted hover:text-ink'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        <p className="mt-2 text-xs text-faint">
+          Match ProPresenter's output. 4K is sharper on 4K screens but works the computer harder.
+        </p>
+      </fieldset>
+
+      <div>
+        <RangeRow
+          label="Show cues early"
+          min={0}
+          max={MAX_EARLY_MS}
+          step={10}
+          value={value.earlyMs}
+          format={(v) => (v === 0 ? 'Off' : `${v} ms`)}
+          onChange={(v) => set('earlyMs', v)}
+        />
+        <p className="mt-2 text-xs text-faint">
+          If the screen changes after the music, slide this up until the 4, 3, 2, 1 lands on the
+          beat. Most setups need 50 to 150 ms. Only the output to ProPresenter moves.
+        </p>
+      </div>
 
       <fieldset className="flex flex-col gap-2.5">
         <legend className="mb-2 text-[13px] font-medium text-muted">Colours</legend>

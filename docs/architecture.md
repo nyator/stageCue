@@ -41,7 +41,7 @@ Electron with a React renderer, built by Vite, styled with Tailwind CSS.
 - **Style**: colours, opacity, size, position, and which parts of the band to show. Saved in the engine, so every computer uses the same style.
 - **Setup**: how to connect Ableton and ProPresenter, the engine address, and devices.
 
-The main process also opens a hidden, off-screen, transparent 1920×1080 window that loads `output.html`. That page connects to the engine as a `display` client and renders only the band. Each painted frame (BGRA with alpha) goes to the NDI sender in `src/main/output`.
+The main process also opens a hidden, off-screen, transparent window (1920×1080, or 3840×2160 when Output size is 4K) that loads `output.html`. That page connects to the engine as a `display` client and renders only the band. Each painted frame (BGRA with alpha) goes to the NDI sender in `src/main/output`.
 
 Security: context isolation on, Node integration off, sandboxed preload (built as CommonJS), navigation and new windows blocked, every permission request denied. The preload exposes only the computer name and the output status.
 

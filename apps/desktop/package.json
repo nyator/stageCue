@@ -17,6 +17,7 @@
     "@stagecue/arrangement": "workspace:*",
     "@stagecue/event-protocol": "workspace:*",
     "@stagecue/shared-types": "workspace:*",
+    "@stagetimerio/grandiose": "^0.2.1",
     "react": "^19.3.1",
     "react-dom": "^19.3.1"
   },

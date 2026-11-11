@@ -1,4 +1,4 @@
-import { Copy } from '@phosphor-icons/react'
+import { Copy, DownloadSimple, FolderOpen, MusicNotesPlus } from '@phosphor-icons/react'
 import { useState } from 'react'
 import {
   changeEngineUrl,
@@ -61,7 +61,7 @@ function ConnectAbleton() {
       </p>
       <ol className="flex flex-col gap-2">
         <Step number={1}>
-          On the music computer, drop the StageCue device onto any track in your Live set.
+          <InstallDevice />
         </Step>
         <Step number={2}>
           Enter this computer’s address in the device:
@@ -94,6 +94,96 @@ function ConnectAbleton() {
         </Step>
       </ol>
     </section>
+  )
+}
+
+type InstallState =
+  | { phase: 'idle' }
+  | { phase: 'working'; action: 'install' | 'save' }
+  | { phase: 'installed' }
+  | { phase: 'saved'; folder: string }
+  | { phase: 'failed'; reason: string }
+
+/** Puts the Max for Live device where Live's browser can find it, or saves a copy to hand on. */
+function InstallDevice() {
+  const [state, setState] = useState<InstallState>({ phase: 'idle' })
+  const bridge = window.stagecue
+
+  const install = async () => {
+    if (!bridge) return
+    setState({ phase: 'working', action: 'install' })
+    const result = await bridge.installAbletonDevice()
+    setState(result.ok ? { phase: 'installed' } : { phase: 'failed', reason: result.reason })
+  }
+
+  const save = async () => {
+    if (!bridge) return
+    setState({ phase: 'working', action: 'save' })
+    const result = await bridge.saveAbletonDevice()
+    if (!result) setState({ phase: 'idle' })
+    else if (result.ok) setState({ phase: 'saved', folder: result.folder })
+    else setState({ phase: 'failed', reason: result.reason })
+  }
+
+  const working = state.phase === 'working'
+  return (
+    <div className="flex flex-col gap-2.5">
+      <span>Add the StageCue device to Ableton on the music computer.</span>
+      <div className="flex flex-wrap gap-2">
+        <Button
+          variant="primary"
+          size="sm"
+          icon={<MusicNotesPlus className="size-4" />}
+          loading={working && state.action === 'install'}
+          disabled={!bridge || working}
+          onClick={() => void install()}
+        >
+          Add to Ableton on this computer
+        </Button>
+        <Button
+          size="sm"
+          icon={<DownloadSimple className="size-4" />}
+          loading={working && state.action === 'save'}
+          disabled={!bridge || working}
+          onClick={() => void save()}
+        >
+          Save a copy for another computer
+        </Button>
+      </div>
+      {state.phase === 'installed' ? (
+        <div role="status" className="rounded-md bg-raised px-3 py-2.5 text-ink">
+          <p>
+            Added. In Live’s browser, open{' '}
+            <strong className="font-medium">
+              User Library › Presets › Audio Effects › Max Audio Effect › StageCue
+            </strong>{' '}
+            and drag StageCue onto the master track.
+          </p>
+          <p className="mt-1 text-faint">
+            To have it in every new song, save a set with it as your default: Live’s Settings, File
+            &amp; Folder, Save Current Set as Default.
+          </p>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="mt-1 -ml-2.5"
+            icon={<FolderOpen className="size-4" />}
+            onClick={() => bridge?.revealAbletonDevice()}
+          >
+            Show the files
+          </Button>
+        </div>
+      ) : state.phase === 'saved' ? (
+        <p role="status" className="rounded-md bg-raised px-3 py-2.5 text-ink">
+          Saved the StageCue folder. Copy the whole folder to the music computer, then drag it onto
+          User Library in Live’s browser. Keep the files together: the device needs all of them.
+        </p>
+      ) : state.phase === 'failed' ? (
+        <p role="alert" className="text-alert">
+          {state.reason}
+        </p>
+      ) : null}
+    </div>
   )
 }
 

@@ -6,8 +6,11 @@ import { useLive, type LiveSnapshot } from '../engine'
  * The cue to show right now. While the DAW plays, this re-renders every
  * animation frame and moves the playhead forward from the last report, so the
  * countdown and pulse stay smooth between network updates.
+ *
+ * `earlyMs` runs the playhead that far ahead while playing, to cancel out delay
+ * further down the line (the NDI output uses it; the preview stays exact).
  */
-export function useCueView(): { view: CueView; live: LiveSnapshot | null } {
+export function useCueView(earlyMs = 0): { view: CueView; live: LiveSnapshot | null } {
   const live = useLive()
   const markers = live?.state.markers
   const cues = useMemo(() => toCues(markers ?? []), [markers])
@@ -26,7 +29,7 @@ export function useCueView(): { view: CueView; live: LiveSnapshot | null } {
 
   const playhead =
     live && transport
-      ? { ...transport, beat: beatAt(transport, frameTime - live.receivedAt) }
+      ? { ...transport, beat: beatAt(transport, frameTime - live.receivedAt + earlyMs) }
       : null
 
   return {

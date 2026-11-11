@@ -62,18 +62,18 @@ StageCue reads the section markers from the DAW as the song plays and shows the 
 
 ### 6.2 What the choir sees (the band)
 
-| ID  | Requirement                                                                                                                     |
-| --- | ------------------------------------------------------------------------------------------------------------------------------- |
-| B1  | The current section name, large and centred.                                                                                    |
-| B2  | The extra line under it, when the locator has one.                                                                              |
-| B3  | The next section's name.                                                                                                        |
-| B4  | Bars remaining until the next section (“in 3 bars”).                                                                            |
-| B5  | In the last bar before the next section, a large countdown on each beat (4, 3, 2, 1), pulsing in time.                          |
-| B6  | A progress bar across the full width of the band that fills through the current section and is full as the next section starts. |
-| B7  | Countdown, pulse, and progress follow Ableton's tempo and time signature, including tempo changes, to within one video frame.   |
-| B8  | Before the first locator, the band shows the first section as “Coming up”, with the countdown.                                  |
-| B9  | Every line keeps its space, so the band does not jump in size as sections change.                                               |
-| B10 | The layout reads at a distance: high contrast, few elements, one centred column.                                                |
+| ID  | Requirement                                                                                                                      |
+| --- | -------------------------------------------------------------------------------------------------------------------------------- |
+| B1  | The current section name, large, under a small NOW heading.                                                                      |
+| B2  | The extra line under it, when the locator has one; the next section's extra line under NEXT too.                                 |
+| B3  | The next section's name under a NEXT heading in the highlight colour, nearly as large as the current one, so singers read ahead. |
+| B4  | Bars remaining until the next section, as a number between NOW and NEXT (an arrow when there is no countdown).                   |
+| B5  | In the last bar before the next section, a large countdown on each beat (4, 3, 2, 1), pulsing in time.                           |
+| B6  | A progress bar across the full width of the band that fills through the current section and is full as the next section starts.  |
+| B7  | Countdown, pulse, and progress follow Ableton's tempo and time signature, including tempo changes, to within one video frame.    |
+| B8  | Before the first locator, the band shows the first section as “Coming up”, with the countdown.                                   |
+| B9  | Lines with nothing to show take no space: a section without an extra line, or with no next section, gets a shorter band.         |
+| B10 | Reads left to right as one phrase, NOW → countdown → NEXT, centred on screen; alone and centred when there is no next section.   |
 
 ### 6.3 Media control
 
@@ -100,7 +100,7 @@ The screen follows Ableton; nobody steps through sections by hand. When the serv
 
 | ID  | Requirement                                                                                                         |
 | --- | ------------------------------------------------------------------------------------------------------------------- |
-| P1  | StageCue publishes a 1920×1080 NDI source named “StageCue” with a transparent background.                           |
+| P1  | StageCue publishes an NDI source named “StageCue”, 1920×1080 or 3840×2160 (Style → Output size), transparent.       |
 | P2  | The operator adds it as a video input in ProPresenter 7 and places it above the lyrics in any look, layer, or prop. |
 | P3  | Video never crosses the network: the band is drawn on the media computer.                                           |
 

@@ -23,6 +23,16 @@ export interface DesktopBridge {
     node: string
   }
   getOutputStatus(): Promise<OutputStatus>
+  /** The output page reports the saved output size, so the main process can resize the NDI picture. */
+  setOutputSize(size: '1080p' | '4k'): void
   /** Returns a function that stops listening. */
   onOutputStatus(listener: (status: OutputStatus) => void): () => void
+  /** Copies the Ableton device into Live's User Library on this computer. */
+  installAbletonDevice(): Promise<DeviceCopyResult>
+  /** Asks for a folder and saves a copy of the Ableton device there. Null if cancelled. */
+  saveAbletonDevice(): Promise<DeviceCopyResult | null>
+  /** Shows the installed device in Finder or Explorer. */
+  revealAbletonDevice(): void
 }
+
+export type DeviceCopyResult = { ok: true; folder: string } | { ok: false; reason: string }

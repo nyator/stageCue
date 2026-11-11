@@ -88,8 +88,8 @@ The bridge reports the transport about ten times a second. Between reports, `bea
 ## 5. Desktop app (`apps/desktop`)
 
 - Two renderer pages built by electron-vite: `index.html` (the app) and `output.html` (the band only, transparent). A page's role comes from `<html data-stagecue-role>`; the output page connects as `display`.
-- `src/main/output/output.ts` (`OutputController`): opens an off-screen, transparent, 1920×1080 window (`enableLargerThanScreen` so the OS does not clamp it), 30 fps, and forwards each `paint` bitmap (BGRA) to the sender. `STAGECUE_OUTPUT_SNAPSHOT=path.png` saves one frame for testing without NDI.
-- `src/main/output/ndi.ts`: **stub**; reports NDI as unavailable until implemented (section 6).
+- `src/main/output/output.ts` (`OutputController`): opens an off-screen, transparent window at the saved Output size, 1920×1080 or 3840×2160 (`enableLargerThanScreen` so the OS does not clamp it), 30 fps. The output page reports `outputSize` from the display settings over IPC (`output:size`) and the controller resizes the window; the band is laid out in container units, so it looks the same at both sizes. It and forwards each `paint` bitmap (BGRA) to the sender. `STAGECUE_OUTPUT_SNAPSHOT=path.png` saves one frame for testing without NDI.
+- `src/main/output/ndi.ts`: the NDI sender (section 6). Loads the native module at runtime, so a missing build reports NDI as unavailable instead of crashing.
 - Security: context isolation, no Node in renderers, sandboxed CommonJS preload, navigation and new windows blocked, all permission requests denied, CSP limits network to WebSocket and the dev server.
 
 ## 6. NDI output
@@ -105,7 +105,17 @@ The bridge reports the transport about ten times a second. Between reports, `bea
 
 **Considered: Python sidecar** with [`cyndilib`](https://github.com/nocarryr/cyndilib) (prebuilt wheels for macOS and Windows, no compiler). Rejected as the primary path because Electron would have to stream about 250 MB/s of raw frames (1920×1080×4 bytes×30 fps) to another process, and both installers would have to bundle a Python runtime. Keep it as the fallback if the Node module cannot be made to work on a platform. If used, reduce the cost by sending only the band's rows instead of the full frame.
 
-### 6.2 Implementation plan
+### 6.2 Implementation (done on macOS arm64)
+
+- `createNdiSender(name, frameRate)` creates the source with `clockVideo: false` and sends each painted frame immediately; if a send is in flight, the newest frame goes as soon as it finishes (never a queue). Off-screen `paint` only fires on change, so a timer resends the latest frame whenever none has gone out for a frame's time, keeping the stream continuous.
+- 1080p runs at 60 fps, 4K at 30 (`OUTPUT_DIMENSIONS`). Measured on an M-series MacBook with a receiver on the same machine: a change in the engine reaches the receiver in 19 ms on average (16 to 38 ms), against 31 ms average and 72 ms worst with the earlier 30 fps timer-only sender. The app's main process uses about 40% of one core while sending at 60 fps.
+- What StageCue cannot remove (ProPresenter's buffering, the projector or LED processor) is cancelled with the `earlyMs` display setting ("Show cues early"): the output page runs its dead-reckoned playhead that many milliseconds ahead while playing.
+- Chromium paints premultiplied BGRA; NDI's BGRA is straight alpha, so `unpremultiply` divides out the soft-edge pixels on each paint (reading whole pixels as 32-bit words, so fully transparent and opaque pixels cost one compare).
+- `OutputController` polls `connections()` every second and reports receivers in the output status.
+- `node-gyp` is a root dev dependency so the module's install script can compile it under pnpm.
+- Verified with an NDI receiver connected by address: 1920×1080 BGRA at 30/1, transparent outside the band, correct colours and soft edges. Bonjour discovery and ProPresenter remain to be checked on a machine with NDI Tools or ProPresenter.
+
+### 6.3 Original plan
 
 1. `pnpm --filter @stagecue/desktop add @stagetimerio/grandiose` (with the build allowed).
 2. Implement `createNdiSender()` in `ndi.ts`: `grandiose.send({ name: 'StageCue', clockVideo: true })`, then for each frame `sender.video({ xres, yres, fourCC: FOURCC_BGRA, lineStrideBytes: xres * 4, frameRateN: 30, frameRateD: 1, data })`. Load the module with a dynamic import inside `try`, so a missing module reports “unavailable” instead of crashing.
@@ -130,10 +140,13 @@ A Max for Live **MIDI or Audio Effect** device placed on any track (the master i
 - **`stagecue-lom.js`** uses `LiveAPI` on `live_set`:
   - read `cue_points`; for each, `name` and `time`; observe the list and each point's `name` and `time`, and send the full list on any change (`daw.markers`);
   - observe `is_playing`, `tempo`, `signature_numerator`, `signature_denominator`, and `current_song_time`;
-  - send `daw.transport` immediately on play, stop, tempo or signature change, or a jump (position change that does not match elapsed time at the tempo), and at most every 100 ms otherwise.
+  - send `daw.transport` immediately on play, stop, tempo or signature change, or a jump (position change that does not match elapsed time at the tempo), and every 50 ms while playing.
 - **`stagecue-bridge.js`** (Node for Max): connects to `ws://<host>:7417`, says `hello` with role `daw_bridge` and a stable `clientId`, keeps the sequence number, reconnects with backoff, and replays the last markers and transport after reconnecting. Mirror `integrations/simulator/src/index.ts`, which already does exactly this.
 - **Project name:** the Live Object Model does not expose the set's file name reliably; leave `project` null or add a text field on the device.
-- **Distribution:** freeze the device so its scripts are embedded in the `.amxd`. Node for Max dependencies (`ws`) must be installed with `script npm install` before freezing, or use Node's built-in `WebSocket` if the bundled Node version has it.
+- **Polling:** `current_song_time` is read every 50 ms; play, stop, tempo, signature and loop changes are observed and sent at once.
+- **Recovering:** the bridge runs a watchdog every 2 s. It retries if the retry loop ever stopped or a connection attempt hangs for 4 s, and, while connected but missing markers or transport, sends `refresh` to the `[js]` side, which starts itself if it is idle (Max reloads `[js]` when its file changes, and `[live.thisdevice]` only bangs on device load).
+- **Panel:** 300 × 169, laid out by `build-device.ts`: a status light (green connected, amber connecting, red needs attention) and message, the section under the playhead with playing or stopped, the locator count, and the address field. The bridge sends `light`, `section`, `playstate` and `locators` alongside `status`.
+- **Distribution:** the device is four files that must stay together (`StageCue.amxd`, the two scripts, `package.json`). The app's Setup page copies them into Live's User Library (`Presets/Audio Effects/Max Audio Effect/StageCue`), found from the newest `Library.cfg` in Live's preferences (`apps/desktop/src/main/ableton-device.ts`), or saves the folder anywhere for a music computer without StageCue. Packaging must ship the device folder as `resources/ableton-device`. Freezing the `.amxd` (scripts embedded) remains an option; the bridge uses Node's built-in `WebSocket`, so it has no npm dependencies to freeze.
 
 ### 7.2 Test plan in Ableton
 
