@@ -26,7 +26,7 @@ A messenger between Ableton Live and ProPresenter 7 for church choirs. The music
 | NDI sending (`apps/desktop/src/main/output/ndi.ts`)                                                | Working on macOS (1080p at 60 fps, 4K at 30) and Windows (1080p at 30), straight alpha, checked with an independent NDI receiver on each (technical-design.md §6.3). Not yet seen in ProPresenter; 4K not measured on Windows |
 | TV or screen without ProPresenter (`apps/screen`, engine HTTP, `apps/desktop/src/main/screens.ts`) | Built (on `master`); tested in headless Edge (landscape and portrait). Not yet on a real TV, attached second screen, or AirPlay (technical-design.md §6b)                                                                     |
 | ProPresenter end-to-end                                                                            | Not tested                                                                                                                                                                                                                    |
-| Two computers over Wi-Fi                                                                           | Not tested                                                                                                                                                                                                                    |
+| Two computers over Wi-Fi                                                                           | Tested 11 November 2026 (Mac with Ableton, Windows PC with StageCue, iPhone hotspot): steady link, Wi-Fi drop recovers on its own, TV page in Safari works; security probe results in technical-design.md §11.1               |
 | Installers, engine started by the app, pairing                                                     | Not started                                                                                                                                                                                                                   |
 | Logic Pro                                                                                          | Open question (no known way to read marker names)                                                                                                                                                                             |
 
@@ -34,8 +34,9 @@ A messenger between Ableton Live and ProPresenter 7 for church choirs. The music
 
 1. **NDI in ProPresenter** (technical-design.md §6.4): add the `StageCue` source in ProPresenter 7, leave its alpha on straight (the default), layer it over lyrics, match **Style → Output size** to ProPresenter's output, and measure the delay against Ableton; use **Show cues early** to cancel it. Python (`cyndilib`) remains the documented fallback only (§6.1).
 2. **Finish the device test plan** (technical-design.md §7.2) and record the results there. In particular, **confirm Ableton positions are quarter notes** with a 6/8 song: the countdown depends on it.
-3. **End-to-end on one Mac** (Ableton, StageCue, ProPresenter 7), then **two computers over Wi-Fi** with deliberate drops.
-4. Then: packaging (§10), pairing (§11), and the Logic decision (§8).
+3. **End-to-end on one Mac** (Ableton, StageCue, ProPresenter 7). Two computers over Wi-Fi is done (§11.1); repeat it at church on the real network with StageCue on the ProPresenter computer (README, "Setting up at church").
+4. **Pairing** (technical-design.md §11): the engine has no sign-in, so anyone on the network can restyle or hide the band. Cheap first steps: refuse WebSocket connections from other websites (Origin check) and cap connections per address.
+5. Then: packaging (§10) and the Logic decision (§8).
 
 ## Commands
 
@@ -101,6 +102,7 @@ A messenger between Ableton Live and ProPresenter 7 for church choirs. The music
 - **Vite cached a half-written file** during a shell rewrite and the app went blank. Touch the file and reload. Prefer editing files in place over truncating and rewriting while `pnpm dev` runs.
 - **Sandboxed preloads must be CommonJS** (`out/preload/index.cjs`); already configured.
 - **Off-screen windows are clamped to the screen size** unless `enableLargerThanScreen` is set; already set.
+- **The TV page runs over plain http on the network**, which browsers treat as insecure: `crypto.randomUUID`, the clipboard, and screen wake lock are missing there. `crypto.randomUUID` left Safari on a blank page (11 November 2026); use `randomId()` from `@stagecue/engine-client`. Test the page at `http://<LAN address>:7417/`, never only at `127.0.0.1` or `localhost`, which count as secure and hide the problem.
 - **The TV page must be built** before the engine can serve it: `pnpm dev` rebuilds it on change (`vite build --watch`); otherwise run `pnpm --filter @stagecue/screen build`. Without a build the engine answers 503 with that command.
 - **Shared React components** live in `packages/display-ui`; each app's CSS has an `@source` line pointing at it so Tailwind generates their classes. A new app using them needs the same line.
 - **Do not press “Show cue” on the only screen** when testing remotely: it takes over the whole display until Esc is pressed on it.

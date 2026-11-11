@@ -28,7 +28,7 @@ async function main(): Promise<void> {
   const warnIgnored = (connectionId: string, name: string, following: string) => {
     if (ignored.has(connectionId)) return
     ignored.add(connectionId)
-    dawLog.warn('Ignoring a second DAW bridge while another one is sending', {
+    dawLog.warn('Ignoring a second DAW bridge while another one is connected', {
       ignored: name,
       following,
     })

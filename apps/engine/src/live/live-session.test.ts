@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { BRIDGE_TIMEOUT_MS, LiveSession } from './live-session.ts'
+import { LiveSession } from './live-session.ts'
 
 const fourFour = { numerator: 4, denominator: 4 } as const
 const markers = [
@@ -93,12 +93,50 @@ describe('LiveSession', () => {
     })
   })
 
-  it('switches to another bridge when the followed one goes silent', () => {
+  it('keeps following a connected bridge that is quiet because Ableton is stopped', () => {
     const { live, advance } = session()
-    live.setMarkers('c1', 'Ableton', null, markers)
-    advance(BRIDGE_TIMEOUT_MS + 1)
-    expect(live.setMarkers('c2', 'Ableton laptop 2', null, [])).toEqual({ accepted: true })
-    expect(live.snapshot().daw).toMatchObject({ connected: true, name: 'Ableton laptop 2' })
+    live.setMarkers('c1', 'Ableton', 'Sunday set', markers)
+    advance(60_000)
+    // Another device on the network cannot take over the screen while Ableton is stopped.
+    expect(live.setMarkers('c2', 'Rogue', 'Rogue', [{ name: 'HACKED', beat: 0 }])).toEqual({
+      accepted: false,
+      following: 'Ableton',
+    })
+    expect(live.snapshot()).toMatchObject({
+      daw: { connected: true, name: 'Ableton', project: 'Sunday set' },
+      markers,
+    })
+  })
+
+  it('keeps the followed bridge and its markers when an ignored one leaves', () => {
+    const { live } = session()
+    live.setMarkers('c1', 'Ableton', 'Sunday set', markers)
+    live.setMarkers('c2', 'Rogue', 'Rogue', [{ name: 'HACKED', beat: 0 }])
+    live.bridgeDisconnected('c2')
+    expect(live.snapshot()).toMatchObject({
+      daw: { connected: true, name: 'Ableton', project: 'Sunday set' },
+      markers,
+    })
+  })
+
+  it('falls back to another connected bridge, with its own markers and position', () => {
+    const { live, advance } = session()
+    const laptop2 = [{ name: 'Bridge', beat: 0 }]
+    live.setMarkers('c1', 'Ableton', 'Sunday set', markers)
+    live.setMarkers('c2', 'Ableton laptop 2', 'Backup set', laptop2)
+    live.setTransport('c2', 'Ableton laptop 2', {
+      playing: true,
+      beat: 4,
+      tempo: 120,
+      timeSignature: fourFour,
+    })
+    advance(1_000)
+    live.bridgeDisconnected('c1')
+    expect(live.snapshot()).toMatchObject({
+      daw: { connected: true, name: 'Ableton laptop 2', project: 'Backup set' },
+      markers: laptop2,
+      transport: { playing: true, beat: 6 },
+    })
   })
 
   it('switches at once when the followed bridge disconnects, and ignores other disconnects', () => {

@@ -14,6 +14,7 @@ import {
   type RequestErrorCode,
   type ServerMessagePayload,
 } from '@stagecue/event-protocol'
+import { randomId } from './random-id.ts'
 
 export type EngineConnectionState =
   | { phase: 'connecting' }
@@ -165,7 +166,7 @@ export class EngineConnection {
       )
     }
 
-    const requestId = crypto.randomUUID()
+    const requestId = randomId()
     return new Promise<MethodResult<M>>((resolve, reject) => {
       const timer = setTimeout(() => {
         this.#pending.delete(requestId)

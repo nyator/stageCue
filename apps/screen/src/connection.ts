@@ -1,4 +1,4 @@
-import { EngineConnection } from '@stagecue/engine-client'
+import { EngineConnection, randomId } from '@stagecue/engine-client'
 
 const CLIENT_ID_KEY = 'stagecue.screen.clientId'
 
@@ -6,12 +6,12 @@ function loadClientId(): string {
   try {
     const existing = localStorage.getItem(CLIENT_ID_KEY)
     if (existing) return existing
-    const created = crypto.randomUUID()
+    const created = randomId()
     localStorage.setItem(CLIENT_ID_KEY, created)
     return created
   } catch {
     // Some TV browsers block storage; the screen then gets a new id each load.
-    return crypto.randomUUID()
+    return randomId()
   }
 }
 

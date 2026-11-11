@@ -240,7 +240,26 @@ Code is platform-neutral today (Electron, Node, `node:sqlite`, `ws`). The dev en
 
 - Every inbound message is validated with `zod`; client→engine schemas are strict. Stale sequence numbers are rejected. Handlers cannot crash the server.
 - Heartbeats terminate dead peers (sleeping laptops, dropped Wi-Fi). Clients reconnect with capped backoff.
-- **Gap:** no authentication. Anyone on the LAN can connect as a bridge or change the style. Add a pairing code (shown in the app, entered in the device) before production on a shared network.
+- **One bridge, decided by connection, not by sound.** StageCue follows the first bridge that speaks for as long as it stays connected, and keeps each bridge's last markers and position. When the followed one disconnects, it switches to another still-connected bridge with that bridge's own data. Before 11 November 2026 a bridge that was quiet for 2 s could be replaced; a stopped Ableton sends nothing, so a second device could take over the screen (found in testing, below).
+- **Gap:** no authentication. Anyone on the LAN can change or hide the style, read the device list, and act as the bridge while no real one is connected. Any web page open on the network can connect too (no Origin check), and there is no limit on connections. Add a pairing code (shown in the app, entered in the device and the TV page) before production on a shared network.
+
+### 11.1 Tested end to end (11 November 2026)
+
+Ableton 12 with the device on a MacBook, the engine and app on a Windows PC, over an iPhone hotspot. Probes ran from the network side (the LAN address), as another device on the Wi-Fi would.
+
+| Area                                         | Result                                                                                                                                                                                        |
+| -------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Link while playing                           | 20 updates/s (the device's 50 ms rate); longest gap 218 ms without other traffic                                                                                                              |
+| Wi-Fi off on the Mac, then on                | Heartbeat ended the dead connection within about 20 s; the band held the section; the device reconnected on its own, resent its 9 markers, and the playhead jumped to Ableton's real position |
+| NDI to the Mac across the hotspot            | Received; about 16 Mbit/s. While it ran, update gaps of 0.3 to 0.6 s appeared: the reason StageCue should run on the ProPresenter computer                                                    |
+| TV page in Safari on the Mac                 | Blank at first: `crypto.randomUUID` is missing on plain-http pages. Fixed with `randomId()` (engine-client); then joined and followed                                                         |
+| Fake second bridge while Ableton was stopped | Took over the screen before the fix; ignored after it                                                                                                                                         |
+| Bad input                                    | Malformed JSON, binary, unknown types, invalid hello, a future protocol version, a 70 KB message, and a silent connection were all refused or closed                                          |
+| Load                                         | 200 connections at once and a burst of 2000 requests: engine stayed responsive                                                                                                                |
+| TV page server                               | 11 path tricks (encoded `..`, backslashes, double encoding, null byte, drive letters, 8000-character paths) all 404; every method other than GET and HEAD is 405                              |
+| App's attached-screen window                 | Its navigation check compared address prefixes, so `http://engine:7417@elsewhere/` passed; now compares origins                                                                               |
+
+Also found on the test PC, outside StageCue: MariaDB allowed through the firewall on Public networks.
 
 ## 12. Testing
 

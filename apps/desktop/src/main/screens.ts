@@ -105,7 +105,14 @@ export class ScreenOutputs {
     // Stay on the screen page; nothing it shows links anywhere.
     window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
     window.webContents.on('will-navigate', (event, target) => {
-      if (!target.startsWith(origin)) event.preventDefault()
+      // Compare parsed origins: a prefix check lets http://engine:7417@elsewhere/ through.
+      let targetOrigin: string | null = null
+      try {
+        targetOrigin = new URL(target).origin
+      } catch {
+        // Not a URL: stay.
+      }
+      if (targetOrigin !== origin) event.preventDefault()
     })
     // Esc on the screen closes it, for whoever is standing at the TV.
     window.webContents.on('before-input-event', (event, input) => {

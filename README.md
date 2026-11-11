@@ -34,7 +34,42 @@ Add a locator where each section starts, and name it:
 | `Chorus \| Full choir` | **CHORUS** with “Full choir” under it |
 | `-`                    | Nothing (clears the band)             |
 
-During each section the band shows what comes next and how many bars are left; in the last bar it counts 4, 3, 2, 1 on the beat. Inside a loop, it shows where the loop goes back to. The screen always follows Ableton: when the service goes off script, the playback engineer stops Ableton, and the media team can hide the band from the Live page until Ableton is back in step.
+Most of the time the band shows only the section the choir is in, with its extra line underneath and a progress bar. In the last 4 bars before a change, what comes next appears with the bars left, and in the last bar it counts 4, 3, 2, 1 on the beat. Inside a loop, it shows where the loop goes back to. The screen always follows Ableton: when the service goes off script, the playback engineer stops Ableton, and the media team can hide the band from the Live page until Ableton is back in step.
+
+## Setting up at church: where to run what
+
+**Run StageCue on the same computer as ProPresenter.** The music computer only needs the StageCue device in Ableton.
+
+```text
+ STAGE                                  MEDIA DESK
+ ┌──────────────────────┐               ┌──────────────────────────────────┐
+ │ Music Mac            │   network     │ Media computer                   │
+ │ Ableton              │──────────────▶│ StageCue  ──NDI──▶ ProPresenter   │
+ │  └ StageCue device   │  tiny data    │ (same computer, video stays put) │
+ └──────────────────────┘               └──────────────────────────────────┘
+```
+
+- **Only section names and the playhead cross the network**, a few kilobits a second. The band itself is video (about 16 Mbit/s over NDI) and stays inside the media computer, so it never waits on Wi-Fi.
+- **The media operator has Hide band / Show band** on the computer they already use.
+- **TVs** can still open the cue from the media computer's address.
+
+| Setup                                                                          | Works | For a service                                                                                         |
+| ------------------------------------------------------------------------------ | ----- | ----------------------------------------------------------------------------------------------------- |
+| Ableton, StageCue and ProPresenter on one computer                             | Yes   | Best: nothing crosses the network                                                                     |
+| Ableton on the stage computer; StageCue and ProPresenter on the media computer | Yes   | Recommended for two computers                                                                         |
+| StageCue on a different computer from ProPresenter                             | Yes   | Avoid: the video crosses the network (adds delay, depends on Wi-Fi). If you must, use a network cable |
+
+Before the first service:
+
+1. **Connect stage and media desk with a network cable** if you can, or the church's own Wi-Fi. Avoid a phone hotspot.
+2. **Give the media computer a fixed address** (a reserved address on the router, or a static IP), so the address typed into the Ableton device never changes.
+3. **Set up the device once** (see Connecting Ableton below): on the media computer, Setup → Ableton → **Save a copy for another computer**; install it on the stage Mac and type in the address Setup shows.
+4. **Allow StageCue on the network.** On a Mac, allow incoming connections when macOS asks. On Windows, mark the church network as Private.
+5. **Check the timing:** play a song and watch the 4, 3, 2, 1 on ProPresenter's output. If it lands after the beat, raise **Style → Show cues early** until it lands on it.
+
+Before each service, the Setup page should show Ableton connected and ProPresenter receiving.
+
+Tested on 11 November 2026 with Ableton on a MacBook and StageCue on a Windows PC over an iPhone hotspot: 20 updates a second, a Wi-Fi drop held the band and reconnected on its own, and the TV page worked in Safari. Small gaps appeared only while the NDI video was also crossing the hotspot, which the recommended setup avoids.
 
 ## Connecting Ableton
 

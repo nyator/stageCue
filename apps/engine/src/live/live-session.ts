@@ -9,14 +9,14 @@ import {
 import type { LiveState, OverrideAction } from '@stagecue/event-protocol'
 import { EngineError } from '../repositories/support.ts'
 
-interface Bridge {
-  connectionId: string
+/** What one connected bridge last reported, kept so StageCue can fall back to it. */
+interface BridgeRecord {
   name: string
-  lastHeardAt: number
+  project: string | null
+  /** Null until this bridge has sent its markers. */
+  markers: Marker[] | null
+  transport: { value: Transport; receivedAt: number } | null
 }
-
-/** A bridge silent this long can be replaced by another one that is sending. */
-export const BRIDGE_TIMEOUT_MS = 2_000
 
 /** Whether a DAW message was used, or ignored because another bridge is followed. */
 export type BridgeResult = { accepted: true } | { accepted: false; following: string }
@@ -28,7 +28,9 @@ export type BridgeResult = { accepted: true } | { accepted: false; following: st
 export class LiveSession {
   readonly #now: () => number
   readonly #listeners = new Set<() => void>()
-  #bridge: Bridge | null = null
+  /** Every bridge that has spoken, in the order they first did; kept until it disconnects. */
+  readonly #bridges = new Map<string, BridgeRecord>()
+  #followed: string | null = null
   #project: string | null = null
   #markers: Marker[] = []
   #transport: { value: Transport; receivedAt: number } | null = null
@@ -50,21 +52,23 @@ export class LiveSession {
   }
 
   /**
-   * StageCue follows one bridge at a time. Another bridge that is also sending
-   * (a second laptop, or the simulator left running) is ignored until the
-   * followed one disconnects or goes silent; following whichever spoke last
-   * made the band flicker between two positions.
+   * StageCue follows one bridge at a time: the first to speak, for as long as it
+   * stays connected. A connected bridge that is quiet (Ableton stopped sends
+   * nothing) is still in charge, so another device on the network cannot take
+   * over the screen by sending while Ableton is stopped. Dead connections are
+   * closed by the server's heartbeat, which then hands over (bridgeDisconnected).
+   * Following whichever spoke last made the band flicker between two positions.
    */
-  #accept(connectionId: string, name: string): BridgeResult {
-    const now = this.#now()
-    const current = this.#bridge
-    if (current && current.connectionId !== connectionId) {
-      if (now - current.lastHeardAt < BRIDGE_TIMEOUT_MS) {
-        return { accepted: false, following: current.name }
-      }
+  #record(connectionId: string, name: string): BridgeResult {
+    if (!this.#bridges.has(connectionId)) {
+      this.#bridges.set(connectionId, { name, project: null, markers: null, transport: null })
     }
-    this.#bridge = { connectionId, name, lastHeardAt: now }
-    return { accepted: true }
+    this.#followed ??= connectionId
+    if (this.#followed === connectionId) return { accepted: true }
+    return {
+      accepted: false,
+      following: this.#bridges.get(this.#followed)?.name ?? 'another bridge',
+    }
   }
 
   setMarkers(
@@ -73,7 +77,10 @@ export class LiveSession {
     project: string | null,
     markers: Marker[],
   ): BridgeResult {
-    const result = this.#accept(connectionId, name)
+    const result = this.#record(connectionId, name)
+    const bridge = this.#bridges.get(connectionId)!
+    bridge.project = project
+    bridge.markers = markers
     if (!result.accepted) return result
     this.#project = project
     this.#markers = markers
@@ -82,24 +89,39 @@ export class LiveSession {
   }
 
   setTransport(connectionId: string, name: string, transport: Transport): BridgeResult {
-    const result = this.#accept(connectionId, name)
+    const result = this.#record(connectionId, name)
+    const received = { value: transport, receivedAt: this.#now() }
+    this.#bridges.get(connectionId)!.transport = received
     if (!result.accepted) return result
-    this.#transport = { value: transport, receivedAt: this.#now() }
+    this.#transport = received
     this.#changed()
     return result
   }
 
   /**
-   * The bridge went away (DAW closed, network dropped). Keep the markers and the
-   * last position so the display holds steady, but stop the clock.
+   * A bridge went away (DAW closed, network dropped). If it was the one followed
+   * and another is still connected, follow that one, with its own last markers
+   * and position. Otherwise keep the markers and the last position so the
+   * display holds steady, but stop the clock.
    */
   bridgeDisconnected(connectionId: string): void {
-    if (this.#bridge?.connectionId !== connectionId) return
-    this.#bridge = null
-    if (this.#transport) {
-      this.#transport = {
-        value: { ...this.#transport.value, beat: this.#currentBeat()!, playing: false },
-        receivedAt: this.#now(),
+    if (!this.#bridges.delete(connectionId) || this.#followed !== connectionId) return
+
+    const [nextId, next] = this.#bridges.entries().next().value ?? []
+    if (nextId && next) {
+      this.#followed = nextId
+      if (next.markers) {
+        this.#project = next.project
+        this.#markers = next.markers
+      }
+      if (next.transport) this.#transport = next.transport
+    } else {
+      this.#followed = null
+      if (this.#transport) {
+        this.#transport = {
+          value: { ...this.#transport.value, beat: this.#currentBeat()!, playing: false },
+          receivedAt: this.#now(),
+        }
       }
     }
     this.#changed()
@@ -157,8 +179,8 @@ export class LiveSession {
       : null
     return {
       daw: {
-        connected: this.#bridge !== null,
-        name: this.#bridge?.name ?? null,
+        connected: this.#followed !== null,
+        name: this.#followed ? (this.#bridges.get(this.#followed)?.name ?? null) : null,
         project: this.#project,
       },
       markers: this.#markers,
