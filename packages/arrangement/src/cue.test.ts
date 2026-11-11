@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { computeCueView, cueIndexAt, type Playhead } from './cue.ts'
 import {
   beatAt,
+  smoothBeat,
   DEFAULT_DISPLAY_SETTINGS,
   displaySettingsSchema,
   parseMarkerName,
@@ -283,5 +284,22 @@ describe('looping', () => {
     expect(
       computeCueView(cues, inLoop(20, { start: 0, end: 8 }), { mode: 'auto' }).next?.label,
     ).toBe('Chorus')
+  })
+})
+
+describe('smoothBeat', () => {
+  it('moves forward with the estimate', () => {
+    expect(smoothBeat(null, 10)).toBe(10)
+    expect(smoothBeat(10, 10.2)).toBe(10.2)
+  })
+
+  it('holds small backward corrections, which are network jitter', () => {
+    expect(smoothBeat(10.2, 10.05)).toBe(10.2)
+    expect(smoothBeat(10.2, 9.75)).toBe(10.2)
+  })
+
+  it('follows real jumps backwards: a seek or a loop going back', () => {
+    expect(smoothBeat(10.2, 9.6)).toBe(9.6)
+    expect(smoothBeat(64, 48)).toBe(48)
   })
 })

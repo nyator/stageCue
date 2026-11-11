@@ -22,6 +22,16 @@ async function main(): Promise<void> {
 
   const live = new LiveSession()
   const dawLog = logger.child('daw')
+  // One warning per ignored connection, not one per message.
+  const ignored = new Set<string>()
+  const warnIgnored = (connectionId: string, name: string, following: string) => {
+    if (ignored.has(connectionId)) return
+    ignored.add(connectionId)
+    dawLog.warn('Ignoring a second DAW bridge while another one is sending', {
+      ignored: name,
+      following,
+    })
+  }
   const addresses = lanAddresses(config.host)
 
   let server: EngineServer
@@ -47,10 +57,12 @@ async function main(): Promise<void> {
       },
       onDawMarkers: (connectionId, client, { project, markers }) => {
         dawLog.info('Markers received', { from: client.name, project, count: markers.length })
-        live.setMarkers(connectionId, client.name, project, markers)
+        const result = live.setMarkers(connectionId, client.name, project, markers)
+        if (!result.accepted) warnIgnored(connectionId, client.name, result.following)
       },
       onDawTransport: (connectionId, client, transport) => {
-        live.setTransport(connectionId, client.name, transport)
+        const result = live.setTransport(connectionId, client.name, transport)
+        if (!result.accepted) warnIgnored(connectionId, client.name, result.following)
       },
       onClientLeft: (connectionId, client) => {
         if (client.role === 'daw_bridge') {

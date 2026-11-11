@@ -155,6 +155,8 @@ Send on play, stop, seek, tempo or time signature change, and about ten times a 
 
 Inside an active loop (the playhead before `end`), the engine and displays wrap the estimated playhead back to `start` at `end`, and show the section the loop returns to as next. The engine does not need a steady stream to stay accurate: between reports, it and every display move the playhead forward with the tempo. When the bridge disconnects, the engine stops the clock at the estimated position.
 
+The engine follows **one bridge at a time**. While the followed bridge is connected and has sent something in the last 2 seconds, `daw.markers` and `daw.transport` from any other bridge are ignored (no error is returned; the engine logs a warning once per connection). Another bridge takes over when the followed one disconnects or goes silent for 2 seconds.
+
 ### `live.state` (engine → client)
 
 Sent right after `welcome`, then on every change.

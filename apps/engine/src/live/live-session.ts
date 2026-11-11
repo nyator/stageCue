@@ -12,7 +12,14 @@ import { EngineError } from '../repositories/support.ts'
 interface Bridge {
   connectionId: string
   name: string
+  lastHeardAt: number
 }
+
+/** A bridge silent this long can be replaced by another one that is sending. */
+export const BRIDGE_TIMEOUT_MS = 2_000
+
+/** Whether a DAW message was used, or ignored because another bridge is followed. */
+export type BridgeResult = { accepted: true } | { accepted: false; following: string }
 
 /**
  * What is happening right now: the DAW's markers and playhead, and whether the
@@ -42,24 +49,44 @@ export class LiveSession {
     for (const listener of this.#listeners) listener()
   }
 
-  /** The most recent bridge to send anything is the one StageCue follows. */
-  #adopt(connectionId: string, name: string): void {
-    if (this.#bridge?.connectionId !== connectionId) {
-      this.#bridge = { connectionId, name }
+  /**
+   * StageCue follows one bridge at a time. Another bridge that is also sending
+   * (a second laptop, or the simulator left running) is ignored until the
+   * followed one disconnects or goes silent; following whichever spoke last
+   * made the band flicker between two positions.
+   */
+  #accept(connectionId: string, name: string): BridgeResult {
+    const now = this.#now()
+    const current = this.#bridge
+    if (current && current.connectionId !== connectionId) {
+      if (now - current.lastHeardAt < BRIDGE_TIMEOUT_MS) {
+        return { accepted: false, following: current.name }
+      }
     }
+    this.#bridge = { connectionId, name, lastHeardAt: now }
+    return { accepted: true }
   }
 
-  setMarkers(connectionId: string, name: string, project: string | null, markers: Marker[]): void {
-    this.#adopt(connectionId, name)
+  setMarkers(
+    connectionId: string,
+    name: string,
+    project: string | null,
+    markers: Marker[],
+  ): BridgeResult {
+    const result = this.#accept(connectionId, name)
+    if (!result.accepted) return result
     this.#project = project
     this.#markers = markers
     this.#changed()
+    return result
   }
 
-  setTransport(connectionId: string, name: string, transport: Transport): void {
-    this.#adopt(connectionId, name)
+  setTransport(connectionId: string, name: string, transport: Transport): BridgeResult {
+    const result = this.#accept(connectionId, name)
+    if (!result.accepted) return result
     this.#transport = { value: transport, receivedAt: this.#now() }
     this.#changed()
+    return result
   }
 
   /**

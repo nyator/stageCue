@@ -117,12 +117,14 @@ function ConnectProPresenter() {
       </p>
       <ol className="flex flex-col gap-2">
         <Step number={1}>
-          StageCue publishes the band as an NDI video source named “
-          {status?.sourceName ?? 'StageCue'}”, with a transparent background, on this computer.
+          StageCue publishes the band as an NDI video source with a transparent background. It is
+          listed as “{window.stagecue?.deviceName ?? 'this computer'} (
+          {status?.sourceName ?? 'StageCue'})”.
         </Step>
         <Step number={2}>
-          In ProPresenter, add that NDI source as a video input, then place it on a layer above the
-          lyrics in the looks or props you choose.
+          In ProPresenter, add that NDI source as a video input and set its alpha to{' '}
+          <span className="text-ink">premultiplied</span>, so the band’s see-through areas are not
+          too dark. Then place it on a layer above the lyrics in the looks or props you choose.
         </Step>
         <Step number={3}>
           Size and position it there. Lyrics, slides, and media stay entirely under the operator’s

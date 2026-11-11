@@ -15,13 +15,13 @@ Ableton Live                           StageCue (engine + app)
 
 ## Status
 
-| Part                                 | State                                                                        |
-| ------------------------------------ | ---------------------------------------------------------------------------- |
-| Engine, protocol, countdown logic    | Working and tested                                                           |
-| StageCue app (Live, Style, Setup)    | Working with the simulator                                                   |
-| Output page (1920×1080, transparent) | Working; verified by snapshot                                                |
-| NDI sending                          | Not built yet. Needs the NDI SDK and Visual Studio C++ tools on this machine |
-| Max for Live device                  | Working in Live 12 Suite                                                     |
+| Part                                 | State                                                                                      |
+| ------------------------------------ | ------------------------------------------------------------------------------------------ |
+| Engine, protocol, countdown logic    | Working and tested                                                                         |
+| StageCue app (Live, Style, Setup)    | Working with the simulator                                                                 |
+| Output page (1920×1080, transparent) | Working; verified by snapshot                                                              |
+| NDI sending                          | Working on Windows: 1920×1080 at 30 fps, premultiplied alpha. Not yet seen in ProPresenter |
+| Max for Live device                  | Working in Live 12 Suite                                                                   |
 
 ## Marking up a song in Ableton
 

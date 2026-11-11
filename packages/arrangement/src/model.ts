@@ -82,6 +82,21 @@ export function beatUnit(timeSignature: TimeSignature): number {
   return 4 / timeSignature.denominator
 }
 
+/** Backward corrections smaller than this, in quarter notes, are treated as jitter. */
+export const JITTER_BEATS = 0.5
+
+/**
+ * The playhead to display, given the last one shown and a fresh estimate.
+ * Each DAW report corrects the estimate a little, sometimes backwards; shown
+ * as is, the countdown and progress bar would twitch. Small backward steps are
+ * held instead, until the estimate catches up. Real jumps (a seek, a loop going
+ * back) are larger than JITTER_BEATS and apply at once.
+ */
+export function smoothBeat(previous: number | null, estimate: number): number {
+  if (previous === null || estimate >= previous) return estimate
+  return previous - estimate < JITTER_BEATS ? previous : estimate
+}
+
 /**
  * The playhead now, estimated from the last report. Stopped transports do not
  * move. Inside a loop, the estimate wraps back to the loop start the way the DAW

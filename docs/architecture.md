@@ -26,7 +26,7 @@ Between reports, every display moves the playhead forward with the tempo (dead r
 A standalone Node.js process. It:
 
 - accepts WebSocket clients, validates every message, and rejects stale ones;
-- takes `daw.markers` and `daw.transport` only from connections that identified as `daw_bridge`;
+- takes `daw.markers` and `daw.transport` only from connections that identified as `daw_bridge`, and follows one bridge at a time (another takes over only when the followed one disconnects or goes silent for 2 s);
 - keeps the live state in `LiveSession`: markers, the last transport report, and whether the media team has hidden the band;
 - broadcasts `live.state` to every client on each change;
 - stores the band style and the list of devices that have connected, in SQLite.
@@ -47,7 +47,7 @@ Security: context isolation on, Node integration off, sandboxed preload (built a
 
 ## NDI
 
-NDI sending needs the NDI SDK through a native Node module (`@stagetimerio/grandiose`), compiled on the machine with the Visual Studio C++ build tools. Until that is installed and tested, `src/main/output/ndi.ts` reports NDI as unavailable, and the app says so. The rest of the output pipeline is in place and verified with `STAGECUE_OUTPUT_SNAPSHOT`.
+The output window's frames go out as the NDI source “StageCue” (listed as “<computer name> (StageCue)”) through a native Node module, `@stagetimerio/grandiose`, built against the NDI SDK at install time. NDI paces the frames (30 fps). Frames are **premultiplied** BGRA, as Chromium renders them, so the ProPresenter input must be set to premultiplied alpha. If the module is missing or fails to load, the app reports NDI as unavailable and keeps running. See [technical-design.md](technical-design.md) §6.
 
 ## Packages
 

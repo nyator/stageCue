@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { LiveSession } from './live-session.ts'
+import { BRIDGE_TIMEOUT_MS, LiveSession } from './live-session.ts'
 
 const fourFour = { numerator: 4, denominator: 4 } as const
 const markers = [
@@ -76,12 +76,40 @@ describe('LiveSession', () => {
     expect(state.markers).toHaveLength(3)
   })
 
-  it('ignores a disconnect from a bridge it is not following', () => {
+  it('follows one bridge and ignores a second one that is also sending', () => {
+    const { live, advance } = session()
+    const play = (beat: number) => ({ playing: true, beat, tempo: 120, timeSignature: fourFour })
+    live.setTransport('c1', 'Ableton', play(10))
+    advance(100)
+    expect(live.setTransport('c2', 'Simulator', play(40))).toEqual({
+      accepted: false,
+      following: 'Ableton',
+    })
+    expect(live.setMarkers('c2', 'Simulator', null, [])).toMatchObject({ accepted: false })
+    live.setTransport('c1', 'Ableton', play(10.2))
+    expect(live.snapshot()).toMatchObject({
+      daw: { name: 'Ableton' },
+      transport: { beat: 10.2 },
+    })
+  })
+
+  it('switches to another bridge when the followed one goes silent', () => {
+    const { live, advance } = session()
+    live.setMarkers('c1', 'Ableton', null, markers)
+    advance(BRIDGE_TIMEOUT_MS + 1)
+    expect(live.setMarkers('c2', 'Ableton laptop 2', null, [])).toEqual({ accepted: true })
+    expect(live.snapshot().daw).toMatchObject({ connected: true, name: 'Ableton laptop 2' })
+  })
+
+  it('switches at once when the followed bridge disconnects, and ignores other disconnects', () => {
     const { live } = session()
     live.setMarkers('c1', 'Ableton', null, markers)
-    live.setMarkers('c2', 'Ableton laptop 2', null, markers)
+    live.setMarkers('c2', 'Ableton laptop 2', null, [])
+    live.bridgeDisconnected('c2')
+    expect(live.snapshot().daw).toMatchObject({ connected: true, name: 'Ableton' })
     live.bridgeDisconnected('c1')
-    expect(live.snapshot().daw).toMatchObject({ connected: true, name: 'Ableton laptop 2' })
+    expect(live.setMarkers('c2', 'Ableton laptop 2', null, [])).toEqual({ accepted: true })
+    expect(live.snapshot().daw).toMatchObject({ name: 'Ableton laptop 2' })
   })
 
   it('holds, steps, selects, and returns to auto', () => {

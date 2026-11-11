@@ -39,7 +39,15 @@
   "pnpm": {
     "onlyBuiltDependencies": [
       "electron",
-      "esbuild"
-    ]
+      "esbuild",
+      "@stagetimerio/grandiose"
+    ],
+    "packageExtensions": {
+      "@stagetimerio/grandiose": {
+        "dependencies": {
+          "node-gyp": "^13.1.0"
+        }
+      }
+    }
   }
 }
