@@ -30,13 +30,32 @@ A messenger between Ableton Live and ProPresenter 7 for church choirs. The music
 | Installers, engine started by the app, pairing                                                     | Not started                                                                                                                                                                                                                   |
 | Logic Pro                                                                                          | Open question (no known way to read marker names)                                                                                                                                                                             |
 
+## Handoff: Windows PC to MacBook (11 November 2026, evening)
+
+Work continues on the MacBook, which has Ableton Live 12 Suite, Max 9 and ProPresenter 7. Start with `git pull` and `pnpm install`.
+
+**Decided tonight by the owner:**
+
+- **The media team installs an app; they never run code.** No terminal, no `pnpm dev`, no Node, no Xcode on a church computer. StageCue must ship as a normal Mac app (a `.dmg` with StageCue.app) that starts its own engine.
+- **The Ableton device must be one file, set up once.** Today it is four files that must stay together (`StageCue.amxd`, `stagecue-lom.js`, `stagecue-bridge.js`, `package.json`), and the address has to be typed in. Wanted: a single `StageCue.amxd`, dropped on the master track once (and saved in Live's default set), that finds StageCue on the network by itself.
+- **Where to run what:** StageCue on the same computer as ProPresenter; Ableton on the stage computer with only the device (README, "Setting up at church").
+- **The band (singers' feedback):** most of the time only the current section; NEXT only in the last 4 bars; no arrow (apps/desktop/DESIGN.md, "The band").
+
+**Proven tonight** (Mac with Ableton, Windows PC with StageCue, iPhone hotspot): steady link, Wi-Fi drop recovery, TV page in Safari, band to the Mac over NDI. Three bugs found and fixed (screen takeover by a second bridge, blank TV page on plain http, screen-window navigation). Details: technical-design.md §11.1.
+
 ## Next steps, in order
 
-1. **NDI in ProPresenter** (technical-design.md §6.4): add the `StageCue` source in ProPresenter 7, leave its alpha on straight (the default), layer it over lyrics, match **Style → Output size** to ProPresenter's output, and measure the delay against Ableton; use **Show cues early** to cancel it. Python (`cyndilib`) remains the documented fallback only (§6.1).
-2. **Finish the device test plan** (technical-design.md §7.2) and record the results there. In particular, **confirm Ableton positions are quarter notes** with a 6/8 song: the countdown depends on it.
-3. **End-to-end on one Mac** (Ableton, StageCue, ProPresenter 7). Two computers over Wi-Fi is done (§11.1); repeat it at church on the real network with StageCue on the ProPresenter computer (README, "Setting up at church").
-4. **Pairing** (technical-design.md §11): the engine has no sign-in, so anyone on the network can restyle or hide the band. Cheap first steps: refuse WebSocket connections from other websites (Origin check) and cap connections per address.
-5. Then: packaging (§10) and the Logic decision (§8).
+1. **One-file Ableton device** (needs Max, so on the Mac).
+   - Try **Freeze Device** in Max on `StageCue.amxd` so both scripts and `package.json` are embedded. Cycling '74 documents bundling Node for Max code in devices, but a forum report says a frozen `node.script` could not find its file after unfreezing; our device has no `node_modules`, which avoids that case. Test: freeze, save, delete the loose `.js` files, load the device in Live on a fresh set, confirm it connects. If freezing works, have `build-device.ts` (or a documented one-step Max action) produce the frozen file, and ship only that.
+   - If freezing `node.script` fails: consider `v8.codebox` (code embedded in the patcher) for the Live Object Model part, and keep looking for an embedded option for the network part.
+   - **No address to type:** the engine announces itself on the local network (UDP broadcast with Node's `dgram`, or Bonjour/mDNS `_stagecue._tcp`), and the device connects to the first StageCue it hears, with the typed address kept as an override. Keep it to the local network; never follow an address from outside it.
+   - Setup page: one button, "Save the StageCue device", producing one file; update README "Connecting Ableton".
+2. **Mac app for the media team** (technical-design.md §10): electron-builder (or electron-forge) `.dmg` for macOS (arm64 and x64), the engine started inside the app (no separate process to run), the NDI module prebuilt and unpacked from the asar, the TV page built in, data in the user's Application Support folder. Code signing and notarization so macOS opens it without warnings (needs an Apple Developer account). Windows installer after.
+3. **NDI in ProPresenter** (technical-design.md §6.4): add the `StageCue` source in ProPresenter 7, alpha on straight (the default), layer it over lyrics, match **Style → Output size**, measure the delay against Ableton, and use **Show cues early** to cancel it.
+4. **Sunday trial at church:** run StageCue on the ProPresenter computer, follow the README checklist at soundcheck, keep **Hide band** as the fallback; record what happened in technical-design.md.
+5. **Finish the device test plan** (technical-design.md §7.2), in particular **confirm Ableton positions are quarter notes** with a 6/8 song: the countdown depends on it.
+6. **Pairing** (technical-design.md §11): the engine has no sign-in. Cheap first steps: refuse WebSocket connections from other websites (Origin check) and cap connections per address.
+7. Then: the Logic decision (§8).
 
 ## Commands
 
