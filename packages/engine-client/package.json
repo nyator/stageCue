@@ -1,0 +1,17 @@
+{
+  "name": "@stagecue/engine-client",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Browser client for the StageCue engine: connection, requests, live state.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@stagecue/arrangement": "workspace:*",
+    "@stagecue/event-protocol": "workspace:*"
+  }
+}

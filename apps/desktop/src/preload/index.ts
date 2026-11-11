@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron'
-import type { DesktopBridge, OutputStatus } from '@stagecue/shared-types'
+import type { DesktopBridge, OutputStatus, ScreenInfo } from '@stagecue/shared-types'
 
 const DEVICE_NAME_FLAG = '--stagecue-device-name='
 const deviceName =
@@ -19,6 +19,17 @@ const stagecue = {
     ipcRenderer.on('output:status', handler)
     return () => {
       ipcRenderer.removeListener('output:status', handler)
+    }
+  },
+  listScreens: () => ipcRenderer.invoke('screens:list') as Promise<ScreenInfo[]>,
+  showOnScreen: (screenId, pageUrl) =>
+    ipcRenderer.invoke('screens:open', screenId, pageUrl) as Promise<string | null>,
+  stopScreen: (screenId) => ipcRenderer.invoke('screens:close', screenId) as Promise<void>,
+  onScreensChanged: (listener) => {
+    const handler = (_event: Electron.IpcRendererEvent, screens: ScreenInfo[]) => listener(screens)
+    ipcRenderer.on('screens:changed', handler)
+    return () => {
+      ipcRenderer.removeListener('screens:changed', handler)
     }
   },
 } satisfies DesktopBridge

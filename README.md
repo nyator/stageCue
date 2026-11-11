@@ -15,13 +15,14 @@ Ableton Live                           StageCue (engine + app)
 
 ## Status
 
-| Part                                 | State                                                                                      |
-| ------------------------------------ | ------------------------------------------------------------------------------------------ |
-| Engine, protocol, countdown logic    | Working and tested                                                                         |
-| StageCue app (Live, Style, Setup)    | Working with the simulator                                                                 |
-| Output page (1920×1080, transparent) | Working; verified by snapshot                                                              |
-| NDI sending                          | Working on Windows: 1920×1080 at 30 fps, premultiplied alpha. Not yet seen in ProPresenter |
-| Max for Live device                  | Working in Live 12 Suite                                                                   |
+| Part                                 | State                                                                                                                                                |
+| ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Engine, protocol, countdown logic    | Working and tested                                                                                                                                   |
+| StageCue app (Live, Style, Setup)    | Working with the simulator                                                                                                                           |
+| Output page (1920×1080, transparent) | Working; verified by snapshot                                                                                                                        |
+| NDI sending                          | Working on Windows: 1920×1080 at 30 fps, premultiplied alpha. Not yet seen in ProPresenter                                                           |
+| Max for Live device                  | Working in Live 12 Suite                                                                                                                             |
+| TV or screen, no ProPresenter        | Working: a full-screen page the engine serves to any browser, and full-screen windows on attached screens. Tested in a browser; not yet on a real TV |
 
 ## Marking up a song in Ableton
 
@@ -45,6 +46,15 @@ Needs Live 12 Suite (or Live 12 with Max for Live). Max 9, which comes with it, 
 4. The device shows **Connected**. Press play.
 
 Keep `StageCue.amxd` next to `stagecue-lom.js`, `stagecue-bridge.js`, and `package.json`; the device loads its scripts from its own folder. After changing the device's layout in `integrations/ableton/src/build-device.ts`, rebuild it with `pnpm --filter @stagecue/ableton build:device`.
+
+## Showing it on a TV (no ProPresenter)
+
+Without ProPresenter, StageCue fills a whole screen with the cue: the section very large, the extra line, what comes next with the countdown, and the progress bar. Two ways, both in Setup (the **Screens on this computer** and **Browsers on the network** boxes):
+
+- **A screen attached to the StageCue computer:** a TV on HDMI, or an Apple TV used as a separate AirPlay display. Click **Show cue** next to it; press Esc on that screen to close it.
+- **Any screen with a web browser on the same network:** a smart TV's browser, a tablet, or a small computer plugged into the TV. Open `http://<StageCue computer>:7417/` (Setup lists the exact addresses) and click once for full screen. Add `?name=Choir%20TV` to name it in the device list.
+
+Colours and on/off switches come from the Style tab (set **Preview on** to **TV**). Hide band blanks these screens too.
 
 ## Requirements
 
@@ -82,20 +92,22 @@ The engine reads these environment variables. All are optional.
 | `STAGECUE_ENGINE_PORT` | `7417`              | WebSocket port                                                  |
 | `STAGECUE_DATA_DIR`    | `apps/engine/.data` | Where `stagecue.db` (display style and known devices) is stored |
 | `STAGECUE_LOG_LEVEL`   | `info`              | `debug`, `info`, `warn`, `error`, or `silent`                   |
+| `STAGECUE_SCREEN_DIR`  | `apps/screen/dist`  | The built screen page the engine serves to TVs and browsers     |
 
 For testing the output without NDI or ProPresenter, start the app with `STAGECUE_OUTPUT_SNAPSHOT=frame.png`. It saves one rendered 1920×1080 frame, with its transparency, to that file.
 
 ## Commands
 
-| Command            | What it does                                          |
-| ------------------ | ----------------------------------------------------- |
-| `pnpm dev`         | Runs the engine and the StageCue app                  |
-| `pnpm dev:desktop` | Runs only the app                                     |
-| `pnpm dev:engine`  | Runs only the engine, restarting on change            |
-| `pnpm simulate`    | Runs the Ableton simulator                            |
-| `pnpm build`       | Builds the app into `apps/desktop/out`                |
-| `pnpm test`        | Runs the tests (`pnpm test:watch` keeps them running) |
-| `pnpm check`       | Typecheck, lint, test, and format check               |
+| Command            | What it does                                                |
+| ------------------ | ----------------------------------------------------------- |
+| `pnpm dev`         | Runs the engine and the StageCue app                        |
+| `pnpm dev:desktop` | Runs only the app                                           |
+| `pnpm dev:engine`  | Runs only the engine, restarting on change                  |
+| `pnpm dev:screen`  | Rebuilds the screen page on change (included in `pnpm dev`) |
+| `pnpm simulate`    | Runs the Ableton simulator                                  |
+| `pnpm build`       | Builds the app into `apps/desktop/out`                      |
+| `pnpm test`        | Runs the tests (`pnpm test:watch` keeps them running)       |
+| `pnpm check`       | Typecheck, lint, test, and format check                     |
 
 ## Layout
 
@@ -106,6 +118,9 @@ packages/arrangement     Markers, countdown, and playhead estimation (pure, test
 packages/event-protocol  Every network message, validated on both ends
 packages/shared-types    Types shared between Electron processes
 integrations/simulator   Pretend Ableton for testing
+apps/screen              Full-screen cue page for TVs, served by the engine
+packages/engine-client   Browser connection to the engine (app and screen page)
+packages/display-ui      The band, the full-screen cue, and the per-frame cue hook
 integrations/ableton     Max for Live device
 docs/                    Architecture and protocol
 ```

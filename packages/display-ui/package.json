@@ -1,0 +1,24 @@
+{
+  "name": "@stagecue/display-ui",
+  "private": true,
+  "version": "0.0.0",
+  "description": "What the choir sees: the band and the full-screen cue, plus the per-frame cue hook.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@stagecue/arrangement": "workspace:*",
+    "@stagecue/engine-client": "workspace:*"
+  },
+  "peerDependencies": {
+    "react": "^19.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.3.0",
+    "react": "^19.3.1"
+  }
+}

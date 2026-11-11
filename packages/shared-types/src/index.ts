@@ -13,6 +13,19 @@ export interface OutputStatus {
   receivers: number
 }
 
+/** A screen attached to this computer (HDMI, or an AirPlay display). */
+export interface ScreenInfo {
+  id: number
+  label: string
+  /** Pixels. */
+  width: number
+  height: number
+  /** The screen the StageCue window is normally on. */
+  primary: boolean
+  /** Whether the cue is showing on it now. */
+  showing: boolean
+}
+
 /** What the preload exposes to pages as window.stagecue. */
 export interface DesktopBridge {
   /** This computer's name, so operators can tell StageCue machines apart. */
@@ -25,4 +38,10 @@ export interface DesktopBridge {
   getOutputStatus(): Promise<OutputStatus>
   /** Returns a function that stops listening. */
   onOutputStatus(listener: (status: OutputStatus) => void): () => void
+  listScreens(): Promise<ScreenInfo[]>
+  /** Shows the cue full screen on an attached screen. Resolves to an error message, or null. */
+  showOnScreen(screenId: number, pageUrl: string): Promise<string | null>
+  stopScreen(screenId: number): Promise<void>
+  /** Returns a function that stops listening. */
+  onScreensChanged(listener: (screens: ScreenInfo[]) => void): () => void
 }

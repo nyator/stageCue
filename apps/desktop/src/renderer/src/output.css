@@ -1,4 +1,6 @@
 @import 'tailwindcss';
+/* Components shared with the screen page. */
+@source '../../../../../packages/display-ui/src';
 
 /* The NDI output: transparent everywhere except the band itself. */
 html,

@@ -1,6 +1,6 @@
 import type { MethodName, MethodParams, MethodResult } from '@stagecue/event-protocol'
 import { useCallback, useEffect, useState } from 'react'
-import { EngineRequestError } from './engine-connection'
+import { EngineRequestError } from '@stagecue/engine-client'
 import { engine, useEngineState } from './index'
 
 export function errorMessage(error: unknown): string {

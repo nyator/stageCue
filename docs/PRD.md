@@ -42,6 +42,8 @@ StageCue reads the section markers from the DAW as the song plays and shows the 
 - macOS and Windows for the StageCue app. The church runs entirely on Mac; Windows is supported for other users.
 - Music computer and media computer on the same local network, Wi-Fi or Ethernet, no internet needed. One computer running everything also works.
 
+- A TV or digital screen as the only display, when there is no ProPresenter (section 6.5b).
+
 ### Out of scope (version 1)
 
 - Building or storing songs, arrangements, or setlists inside StageCue. The DAW is the source of truth.
@@ -103,6 +105,16 @@ The screen follows Ableton; nobody steps through sections by hand. When the serv
 | P1  | StageCue publishes a 1920×1080 NDI source named “StageCue” with a transparent background.                           |
 | P2  | The operator adds it as a video input in ProPresenter 7 and places it above the lyrics in any look, layer, or prop. |
 | P3  | Video never crosses the network: the band is drawn on the media computer.                                           |
+
+### 6.5b TV or screen output (no ProPresenter)
+
+| ID  | Requirement                                                                                                             |
+| --- | ----------------------------------------------------------------------------------------------------------------------- |
+| T1  | Without ProPresenter, a TV or digital screen shows the cue full screen: section, extra line, next, countdown, progress. |
+| T2  | Works on a screen attached to the StageCue computer (HDMI, or AirPlay as a separate display).                           |
+| T3  | Works in any browser on the same network (smart TV, tablet, small computer), from an address shown in Setup.            |
+| T4  | Readable across a room in landscape or portrait; long section names shrink to fit.                                      |
+| T5  | Uses the same style as the band; Hide band blanks the screen.                                                           |
 
 ### 6.6 Reliability
 

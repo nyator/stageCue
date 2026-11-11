@@ -1,4 +1,6 @@
 @import 'tailwindcss';
+/* Components shared with the screen page. */
+@source '../../../../../packages/display-ui/src';
 
 /*
  * Dark only, by design: StageCue runs in dim sanctuary booths during services,
@@ -83,6 +85,12 @@ body {
   outline-offset: 2px;
 }
 
+/* Thin, dark scrollbars everywhere, so lists stay quiet in a dim booth. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-line) transparent;
+}
+
 input[type='number'] {
   font-variant-numeric: tabular-nums;
 }
@@ -123,10 +131,39 @@ dialog[open] {
   animation: tally 2.4s ease-in-out infinite;
 }
 
+/* Setup's lamps: one ring goes out when a box is hovered or focused, like a tally light. */
+@keyframes lamp-ring {
+  from {
+    opacity: 0.7;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(2.6);
+  }
+}
+
+.lamp-ring::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: inherit;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.group:hover .lamp-ring::after,
+.group:focus-visible .lamp-ring::after {
+  animation: lamp-ring 600ms var(--ease-out-strong) 1;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .enter,
   .tally,
-  dialog[open] {
+  dialog[open],
+  .group:hover .lamp-ring::after,
+  .group:focus-visible .lamp-ring::after {
     animation: none;
   }
 }

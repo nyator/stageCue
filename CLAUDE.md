@@ -13,21 +13,22 @@ A messenger between Ableton Live and ProPresenter 7 for church choirs. The music
 - Owner: Henry Nyator. Church runs entirely on **Apple hardware**; the home MacBook has Ableton Live 12 Suite, Logic Pro, and ProPresenter 7 on one machine. Must support **macOS and Windows**.
 - Development happens on both: a Windows 11 PC and the MacBook. Pull before starting.
 - **Never add `Co-Authored-By` trailers or “Generated with Claude Code” lines (or any AI attribution) to commits or PR descriptions.**
-- Commit or push only when asked. `master` is the current design; `marker-sync` points at the same commit. Start new work on a branch.
+- Commit or push only when asked. `master` is the current design; `screen-output` adds TV and screen output without ProPresenter. Start new work on a branch.
 
 ## Status (11 November 2026)
 
-| Part                                                                             | State                                                                                                                                                                                         |
-| -------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Engine, protocol, cue logic (countdown, progress, pulse, tempo following, loops) | Done, 81 tests                                                                                                                                                                                |
-| StageCue app: Live (preview, Hide/Show band, marker list), Style, Setup          | Done, tested with the simulator                                                                                                                                                               |
-| Max for Live device (`integrations/ableton/device`)                              | Built; working in Live 12 Suite. The full test plan (technical-design.md §7.2) is not recorded as done                                                                                        |
-| Output page: off-screen, transparent, 1920×1080                                  | Done, verified by snapshot (alpha checked pixel by pixel)                                                                                                                                     |
-| NDI sending (`apps/desktop/src/main/output/ndi.ts`)                              | Working on Windows: 30 fps, premultiplied alpha, verified with an independent NDI receiver (technical-design.md §6.3). Not yet seen in Studio Monitor or ProPresenter, not yet built on macOS |
-| ProPresenter end-to-end                                                          | Not tested                                                                                                                                                                                    |
-| Two computers over Wi-Fi                                                         | Not tested                                                                                                                                                                                    |
-| Installers, engine started by the app, pairing                                   | Not started                                                                                                                                                                                   |
-| Logic Pro                                                                        | Open question (no known way to read marker names)                                                                                                                                             |
+| Part                                                                                               | State                                                                                                                                                                                         |
+| -------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Engine, protocol, cue logic (countdown, progress, pulse, tempo following, loops)                   | Done, 81 tests                                                                                                                                                                                |
+| StageCue app: Live (preview, Hide/Show band, running order), Style, Setup                          | Done and redesigned (apps/desktop/DESIGN.md); checked with the simulator at 1280×820 and 1024×640                                                                                             |
+| Max for Live device (`integrations/ableton/device`)                                                | Built; working in Live 12 Suite. The full test plan (technical-design.md §7.2) is not recorded as done                                                                                        |
+| Output page: off-screen, transparent, 1920×1080                                                    | Done, verified by snapshot (alpha checked pixel by pixel)                                                                                                                                     |
+| NDI sending (`apps/desktop/src/main/output/ndi.ts`)                                                | Working on Windows: 30 fps, premultiplied alpha, verified with an independent NDI receiver (technical-design.md §6.3). Not yet seen in Studio Monitor or ProPresenter, not yet built on macOS |
+| TV or screen without ProPresenter (`apps/screen`, engine HTTP, `apps/desktop/src/main/screens.ts`) | Built on branch `screen-output`; tested in headless Edge (landscape and portrait). Not yet on a real TV, attached second screen, or AirPlay (technical-design.md §6b)                         |
+| ProPresenter end-to-end                                                                            | Not tested                                                                                                                                                                                    |
+| Two computers over Wi-Fi                                                                           | Not tested                                                                                                                                                                                    |
+| Installers, engine started by the app, pairing                                                     | Not started                                                                                                                                                                                   |
+| Logic Pro                                                                                          | Open question (no known way to read marker names)                                                                                                                                             |
 
 ## Next steps, in order
 
@@ -50,21 +51,29 @@ A messenger between Ableton Live and ProPresenter 7 for church choirs. The music
 
 ## Where things are
 
-| Need to change…                                   | Look in                                                              |
-| ------------------------------------------------- | -------------------------------------------------------------------- |
-| Countdown, progress, pulse, loops, marker names   | `packages/arrangement/src/cue.ts`, `model.ts` (+ `cue.test.ts`)      |
-| Messages, methods, validation                     | `packages/event-protocol/src/messages.ts`, `methods.ts`              |
-| Live state, hide band, disconnect behaviour       | `apps/engine/src/live/live-session.ts`                               |
-| Server, roles, heartbeat                          | `apps/engine/src/server/engine-server.ts`                            |
-| The band's look                                   | `apps/desktop/src/renderer/src/features/display/Band.tsx`            |
-| App screens                                       | `apps/desktop/src/renderer/src/features/{live,style,setup}`          |
-| Output window and NDI                             | `apps/desktop/src/main/output/`                                      |
-| Per-frame playhead in the UI                      | `apps/desktop/src/renderer/src/live/use-cue-view.ts`                 |
-| Engine connection, reconnects                     | `apps/desktop/src/renderer/src/engine/engine-connection.ts`          |
-| Ableton: reading locators, transport, loop region | `integrations/ableton/device/stagecue-lom.js` (Max `[js]`)           |
-| Ableton: talking to the engine, saved address     | `integrations/ableton/device/stagecue-bridge.js` (Node for Max)      |
-| The device's layout                               | `integrations/ableton/src/build-device.ts`, then rebuild the `.amxd` |
-| Reference bridge for testing                      | `integrations/simulator/src/index.ts`                                |
+| Need to change…                                     | Look in                                                                                                                                                             |
+| --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Countdown, progress, pulse, loops, marker names     | `packages/arrangement/src/cue.ts`, `model.ts` (+ `cue.test.ts`)                                                                                                     |
+| Messages, methods, validation                       | `packages/event-protocol/src/messages.ts`, `methods.ts`                                                                                                             |
+| Live state, hide band, disconnect behaviour         | `apps/engine/src/live/live-session.ts`                                                                                                                              |
+| Server, roles, heartbeat                            | `apps/engine/src/server/engine-server.ts`                                                                                                                           |
+| The band's look                                     | `apps/desktop/src/renderer/src/features/display/Band.tsx`                                                                                                           |
+| App screens                                         | `apps/desktop/src/renderer/src/features/{live,style,setup}`                                                                                                         |
+| The app's look (header strip, monitor, lamps, logo) | `apps/desktop/DESIGN.md`, `ui/logo.tsx`, `ui/page.tsx`, `ui/segmented.tsx`, `features/display/Monitor.tsx` (`Monitor`, `MonitorColumns`), `features/setup/lamps.ts` |
+| Bar and beat for any time signature                 | `features/live/position.ts` (+ `position.test.ts`)                                                                                                                  |
+| Output window and NDI                               | `apps/desktop/src/main/output/`                                                                                                                                     |
+| Per-frame playhead in the UI                        | `apps/desktop/src/renderer/src/live/use-cue-view.ts`                                                                                                                |
+| Engine connection, reconnects                       | `apps/desktop/src/renderer/src/engine/engine-connection.ts`                                                                                                         |
+| Ableton: reading locators, transport, loop region   | `integrations/ableton/device/stagecue-lom.js` (Max `[js]`)                                                                                                          |
+| Ableton: talking to the engine, saved address       | `integrations/ableton/device/stagecue-bridge.js` (Node for Max)                                                                                                     |
+| Full-screen cue for TVs                             | `packages/display-ui/src/FullScreenCue.tsx`                                                                                                                         |
+| The TV page (connection, hidden, status)            | `apps/screen/src`                                                                                                                                                   |
+| Serving the TV page                                 | `apps/engine/src/server/static-files.ts`                                                                                                                            |
+| Attached screens (Show cue, Esc to close)           | `apps/desktop/src/main/screens.ts`, `ScreensPanel` in `features/setup/panels.tsx`                                                                                   |
+| Setup page (signal path, lamps, verdict)            | `features/setup/signal.ts` (rules, tested), `SignalPath.tsx`, `panels.tsx`; design notes in `apps/desktop/DESIGN.md`                                                |
+| Engine connection used by the app and the TV page   | `packages/engine-client/src/engine-connection.ts`                                                                                                                   |
+| The device's layout                                 | `integrations/ableton/src/build-device.ts`, then rebuild the `.amxd`                                                                                                |
+| Reference bridge for testing                        | `integrations/simulator/src/index.ts`                                                                                                                               |
 
 ## Conventions
 
@@ -91,8 +100,13 @@ A messenger between Ableton Live and ProPresenter 7 for church choirs. The music
 - **Vite cached a half-written file** during a shell rewrite and the app went blank. Touch the file and reload. Prefer editing files in place over truncating and rewriting while `pnpm dev` runs.
 - **Sandboxed preloads must be CommonJS** (`out/preload/index.cjs`); already configured.
 - **Off-screen windows are clamped to the screen size** unless `enableLargerThanScreen` is set; already set.
+- **The TV page must be built** before the engine can serve it: `pnpm dev` rebuilds it on change (`vite build --watch`); otherwise run `pnpm --filter @stagecue/screen build`. Without a build the engine answers 503 with that command.
+- **Shared React components** live in `packages/display-ui`; each app's CSS has an `@source` line pointing at it so Tailwind generates their classes. A new app using them needs the same line.
+- **Do not press “Show cue” on the only screen** when testing remotely: it takes over the whole display until Esc is pressed on it.
 - **pnpm 10 blocks install scripts** for dependencies not listed in `pnpm.onlyBuiltDependencies`; native modules such as the NDI binding must be added there.
 - **Visual Studio 2026 and node-gyp:** pnpm's bundled node-gyp (11.x) does not recognise VS 2026. The root `package.json` gives the NDI module node-gyp 13 through `pnpm.packageExtensions`; keep it.
 - **Visual Studio's “Node.js development” workload** installs Node 14 into `C:\Program Files\nodejs`, replacing Node 24. Never add it; if `node --version` shows 14, remove that workload and reinstall Node 24.
+- **nvm on the Windows PC:** Node is managed by nvm-windows, and other projects there switch it to Node 14. If `node --version` shows 14, run `nvm use 24.17.0`. To leave the other projects alone, put `C:\Users\hnyator\nvm\v24.17.0` first on `PATH` for the current shell only.
+- **Windows PowerShell 5.1 garbles UTF-8 when rewriting files:** `Get-Content` / `Set-Content` read the file as ANSI and turn `·` and `’` into `Â·` and `â€™` (it happened once in `LivePage.tsx`). Edit source files with an editor, or with Python using `encoding='utf-8'`.
 - **NDI frames are premultiplied** (Chromium renders that way). Receivers set to straight alpha show see-through areas too dark.
 - **Testing NDI without ProPresenter:** NDI Studio Monitor (NDI Tools), or a script using the module's `find` and `receive`; skip `receive.video()` errors with code `4140` (non-video data arrives first).

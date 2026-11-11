@@ -3,6 +3,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { OutputController } from './output/output'
+import { ScreenOutputs } from './screens'
 
 const windowDirectory = path.dirname(fileURLToPath(import.meta.url))
 const devServerUrl = process.env.ELECTRON_RENDERER_URL
@@ -24,6 +25,9 @@ function loadPage(window: BrowserWindow, page: 'index' | 'output'): Promise<void
   }
   return window.loadFile(path.join(windowDirectory, `../renderer/${page}.html`))
 }
+
+// Created once the app is ready: the screen module needs it.
+let screens: ScreenOutputs
 
 const output = new OutputController({
   preload,
@@ -74,7 +78,16 @@ function createWindow(): BrowserWindow {
   const stopForwarding = output.onStatus((status) => {
     if (!window.isDestroyed()) window.webContents.send('output:status', status)
   })
-  window.on('closed', stopForwarding)
+  const stopScreenUpdates = screens.onChange((list) => {
+    if (!window.isDestroyed()) window.webContents.send('screens:changed', list)
+  })
+  window.on('closed', () => {
+    stopForwarding()
+    stopScreenUpdates()
+    // Screen windows would otherwise keep the app running with no way to control them.
+    screens.closeAll()
+    if (process.platform !== 'darwin') app.quit()
+  })
 
   void loadPage(window, 'index')
   return window
@@ -89,6 +102,18 @@ void app.whenReady().then(() => {
 
   ipcMain.handle('output:status', () => output.status)
 
+  screens = new ScreenOutputs()
+  // The renderer is trusted, but check what crosses the bridge anyway.
+  ipcMain.handle('screens:list', () => screens.list())
+  ipcMain.handle('screens:open', (_event, screenId: unknown, pageUrl: unknown) =>
+    typeof screenId === 'number' && typeof pageUrl === 'string'
+      ? screens.open(screenId, pageUrl)
+      : 'Invalid request.',
+  )
+  ipcMain.handle('screens:close', (_event, screenId: unknown) => {
+    if (typeof screenId === 'number') screens.close(screenId)
+  })
+
   createWindow()
   output.start().catch((error: unknown) => {
     console.error('[output] Failed to start', error)
@@ -102,6 +127,7 @@ void app.whenReady().then(() => {
 })
 
 app.on('window-all-closed', () => {
+  screens.closeAll()
   void output.stop()
   if (process.platform !== 'darwin') {
     app.quit()

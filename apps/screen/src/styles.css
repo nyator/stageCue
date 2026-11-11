@@ -1,0 +1,25 @@
+@import 'tailwindcss';
+/* Components shared with the desktop app. */
+@source '../../../packages/display-ui/src';
+
+/* Pure black on purpose: a TV showing nothing should look switched off (OLED pixels go dark). */
+html,
+body,
+#root {
+  margin: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #000;
+}
+
+body {
+  font-family: 'Geist Variable', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* No cursor over the picture once the pointer has been still for a moment. */
+.idle,
+.idle * {
+  cursor: none !important;
+}

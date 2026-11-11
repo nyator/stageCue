@@ -10,12 +10,13 @@
     "pnpm": ">=10"
   },
   "scripts": {
-    "dev": "pnpm --parallel --filter @stagecue/engine --filter @stagecue/desktop dev",
+    "dev": "pnpm --parallel --filter @stagecue/engine --filter @stagecue/desktop --filter @stagecue/screen dev",
     "dev:desktop": "pnpm --filter @stagecue/desktop dev",
     "dev:engine": "pnpm --filter @stagecue/engine dev",
+    "dev:screen": "pnpm --filter @stagecue/screen dev",
     "start:engine": "pnpm --filter @stagecue/engine start",
     "simulate": "pnpm --filter @stagecue/simulator start --",
-    "build": "pnpm --filter @stagecue/desktop build",
+    "build": "pnpm --filter @stagecue/screen build && pnpm --filter @stagecue/desktop build",
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "pnpm -r --if-present typecheck",

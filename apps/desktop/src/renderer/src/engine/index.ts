@@ -4,7 +4,7 @@ import {
   EngineConnection,
   type EngineConnectionState,
   type LiveSnapshot,
-} from './engine-connection'
+} from '@stagecue/engine-client'
 
 /**
  * Each page says what it is with <html data-stagecue-role>. The control window is
@@ -81,7 +81,7 @@ export function useLive(): LiveSnapshot | null {
   return useSyncExternalStore(engine.subscribeLive, engine.getLive)
 }
 
-export { EngineRequestError } from './engine-connection'
+export { EngineRequestError } from '@stagecue/engine-client'
 export type { EngineConnectionState, LiveSnapshot }
 
 // During development, a hot reload of this module must not leave the old socket open.

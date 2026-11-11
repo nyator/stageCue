@@ -37,9 +37,12 @@ It listens on all interfaces by default because the Ableton device connects from
 
 Electron with a React renderer, built by Vite, styled with Tailwind CSS.
 
-- **Live**: preview of the band, Hide band / Show band, and the locator list with the current section highlighted.
-- **Style**: colours, opacity, size, position, and which parts of the band to show. Saved in the engine, so every computer uses the same style.
-- **Setup**: how to connect Ableton and ProPresenter, the engine address, and devices.
+- **Live**: a preview of what the room sees (labelled On screen, Hidden, or Standby), the playback position (bar.beat, tempo, time signature), Hide band / Show band, and the running order of locators with the current section filling as it plays. The page fits the window; only the running order scrolls.
+- **Style**: colours, opacity, size, position, and which parts of the band to show, with a preview for ProPresenter or a TV. Saved in the engine, so every computer uses the same style. Save stays at the top; only the settings column scrolls.
+- **Setup**: the signal path drawn as it is right now (Ableton, the engine, ProPresenter, screens on this computer, browsers on the network), each box lit by its state. Choosing a box shows how to connect it: the address to type into the device, the engine address and devices, the NDI source name, attached screens with Show cue, and the address for browsers.
+- **Header**: the signal path in miniature (Ableton, Engine, Outputs) on every page; it opens Setup.
+
+The look and the reasons behind it are in [apps/desktop/DESIGN.md](../apps/desktop/DESIGN.md).
 
 The main process also opens a hidden, off-screen, transparent 1920×1080 window that loads `output.html`. That page connects to the engine as a `display` client and renders only the band. Each painted frame (BGRA with alpha) goes to the NDI sender in `src/main/output`.
 
@@ -48,6 +51,10 @@ Security: context isolation on, Node integration off, sandboxed preload (built a
 ## NDI
 
 The output window's frames go out as the NDI source “StageCue” (listed as “<computer name> (StageCue)”) through a native Node module, `@stagetimerio/grandiose`, built against the NDI SDK at install time. NDI paces the frames (30 fps). Frames are **premultiplied** BGRA, as Chromium renders them, so the ProPresenter input must be set to premultiplied alpha. If the module is missing or fails to load, the app reports NDI as unavailable and keeps running. See [technical-design.md](technical-design.md) §6.
+
+## Screens without ProPresenter
+
+The engine also answers plain HTTP on its port and serves `apps/screen/dist`: a small page that connects back as a `display` client and draws the **full-screen cue** (`FullScreenCue` in `packages/display-ui`). Any browser on the network can open it. The app can open the same page full screen on a screen attached to the computer (`src/main/screens.ts`). One page, two ways to reach a TV; the ProPresenter band and the TV share colours and switches.
 
 ## Packages
 

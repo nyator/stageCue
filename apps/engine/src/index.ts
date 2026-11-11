@@ -9,6 +9,7 @@ import { lanAddresses } from './network.ts'
 import { recordDeviceSeen } from './repositories/devices.ts'
 import { createDispatcher } from './rpc/dispatcher.ts'
 import { startEngineServer, type EngineServer } from './server/engine-server.ts'
+import { createStaticHandler } from './server/static-files.ts'
 
 async function main(): Promise<void> {
   const config = loadConfig(process.env)
@@ -46,6 +47,7 @@ async function main(): Promise<void> {
       addresses,
       dispatch: createDispatcher(db, live, logger.child('rpc')),
       liveSnapshot: () => live.snapshot(),
+      httpHandler: createStaticHandler(config.screenDir),
       onClientIdentified: (client) => {
         recordDeviceSeen(db, {
           id: client.clientId,
@@ -88,6 +90,9 @@ async function main(): Promise<void> {
   if (addresses.length > 0) {
     logger.info('Point the Ableton device at one of these addresses', {
       addresses: addresses.map((address) => `${address}:${engine.port}`),
+    })
+    logger.info('TVs and browsers can show the cue at', {
+      urls: addresses.map((address) => `http://${address}:${engine.port}/`),
     })
   }
 

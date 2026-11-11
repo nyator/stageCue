@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto'
+import { createServer, type IncomingMessage, type ServerResponse } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import {
   CloseCode,
@@ -50,6 +51,8 @@ export interface EngineServerOptions {
   ) => void
   /** Called when an identified connection closes. */
   onClientLeft?: (connectionId: string, client: ConnectedClient) => void
+  /** Answers plain HTTP requests on the same port, such as the screen page. 404 without one. */
+  httpHandler?: (request: IncomingMessage, response: ServerResponse) => void
   heartbeatIntervalMs?: number
   handshakeTimeoutMs?: number
 }
@@ -94,16 +97,34 @@ export async function startEngineServer(options: EngineServerOptions): Promise<E
   const connections = new Set<Connection>()
   let outgoingSeq = 0
 
-  const wss = new WebSocketServer({
-    host: options.host,
-    port: options.port,
-    maxPayload: MAX_MESSAGE_BYTES,
+  // One port for both: WebSocket clients upgrade, browsers get the screen page.
+  const httpServer = createServer((request, response) => {
+    try {
+      if (options.httpHandler) {
+        options.httpHandler(request, response)
+      } else {
+        response.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' })
+        response.end('Not found')
+      }
+    } catch (error) {
+      logger.error('HTTP request failed', { url: request.url, error })
+      if (!response.headersSent) response.writeHead(500)
+      response.end()
+    }
+  })
+  await new Promise<void>((resolve, reject) => {
+    httpServer.once('listening', resolve)
+    httpServer.once('error', reject)
+    httpServer.listen(options.port, options.host)
   })
 
-  await new Promise<void>((resolve, reject) => {
-    wss.once('listening', resolve)
-    wss.once('error', reject)
+  httpServer.on('error', (error) => {
+    logger.error('HTTP server error', { error })
   })
+
+  // Created only once the port is ours: before that, it would rethrow a failed listen
+  // (such as the port being in use) as an unhandled error instead of letting it reject above.
+  const wss = new WebSocketServer({ server: httpServer, maxPayload: MAX_MESSAGE_BYTES })
 
   wss.on('error', (error) => {
     logger.error('WebSocket server error', { error })
@@ -406,8 +427,12 @@ export async function startEngineServer(options: EngineServerOptions): Promise<E
         }, CLOSE_GRACE_MS)
         forceClose.unref()
         wss.close(() => {
-          clearTimeout(forceClose)
-          resolve()
+          httpServer.close(() => {
+            clearTimeout(forceClose)
+            resolve()
+          })
+          // Browsers keep idle HTTP connections open; do not wait for them.
+          httpServer.closeAllConnections()
         })
       }),
   }

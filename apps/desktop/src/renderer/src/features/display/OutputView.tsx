@@ -1,7 +1,7 @@
 import { DEFAULT_DISPLAY_SETTINGS } from '@stagecue/arrangement'
 import { useEngineQuery } from '../../engine/hooks'
 import { useCueView } from '../../live/use-cue-view'
-import { Band } from './Band'
+import { Band } from '@stagecue/display-ui'
 
 /** Rendered off screen at 1920×1080; the main process sends its frames out over NDI. */
 export function OutputView() {

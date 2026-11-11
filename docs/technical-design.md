@@ -97,6 +97,7 @@ The engine follows one DAW bridge. Another bridge that sends while the followed 
 ## 5. Desktop app (`apps/desktop`)
 
 - Two renderer pages built by electron-vite: `index.html` (the app) and `output.html` (the band only, transparent). A page's role comes from `<html data-stagecue-role>`; the output page connects as `display`.
+- The app's pages (Live, Style, Setup) share one design, recorded in `apps/desktop/DESIGN.md`. What each Setup box says is a pure function (`features/setup/signal.ts`, tested); bar and beat for any time signature is `features/live/position.ts` (tested). Live and Style fit the window with `MonitorColumns`, which sizes the preview column from the height left and gives the rest of the width to the right column.
 - `src/main/output/output.ts` (`OutputController`): opens an off-screen, transparent, 1920×1080 window (`enableLargerThanScreen` so the OS does not clamp it), 30 fps, and forwards each `paint` bitmap (BGRA) to the sender. `STAGECUE_OUTPUT_SNAPSHOT=path.png` saves one frame for testing without NDI.
 - `src/main/output/ndi.ts`: the NDI sender (section 6). Loads the native module at runtime; reports NDI as unavailable if it cannot.
 - Security: context isolation, no Node in renderers, sandboxed CommonJS preload, navigation and new windows blocked, all permission requests denied, CSP limits network to WebSocket and the dev server.
@@ -125,7 +126,7 @@ The engine follows one DAW bridge. Another bridge that sends while the followed 
   - A paint that arrives too soon after the last send only marks the picture as changed; if no later paint comes in time, `webContents.invalidate()` asks for a fresh one, so the last picture is never stale.
   - Frames are sent as they are copied (one clock, `clockVideo: false`). When the picture is still, no paints arrive, and `ndi.ts` re-sends the newest frame to keep receivers fed. Two independent 30 fps clocks (painting and sending) made frames repeat and skip.
 - `STAGECUE_OUTPUT_STATS=1` logs paints per second, frames copied per second, and copy time, every 5 seconds.
-- `sender.connections()` is polled every second and shown as receivers (“On air” in the header).
+- `sender.connections()` is polled every second and shown as receivers (“On air” on Setup's ProPresenter box, and counted in the header's Outputs).
 - The main process logs `[output] First frame rendered` and `[output] Sending to NDI` once each, for troubleshooting.
 
 ### 6.3 Verified so far (Windows 11, 11 November 2026)
@@ -149,6 +150,18 @@ With an independent NDI receiver (the same library's `find` and `receive`, as Pr
 4. CPU use with the app running for a whole service.
 
 If ProPresenter cannot take premultiplied alpha, convert to straight in `ndi.ts` (divide colour by alpha for partly transparent pixels only), and measure the cost per frame.
+
+## 6b. Screen output (no ProPresenter)
+
+For setups with only a TV or digital screen, StageCue shows a full-screen cue instead of a band over lyrics.
+
+- **Page:** `apps/screen`, a Vite + React page built to `dist/`. It connects to `ws://<the host that served it>` as role `display` (name from `?name=`, default “Screen”; client id in `localStorage`), loads the style with `settings.getDisplay`, and reloads it on `data.changed`. Hidden band: black. Engine unreachable: “Reconnecting to StageCue…”; Ableton not connected: “Waiting for Ableton”, both small and dim in a corner. The pointer hides after 3 s; a first click asks for browser full screen (browsers require a gesture).
+- **Layout:** `FullScreenCue` (`packages/display-ui`) sizes everything in `cqmin`, so it reads the same in landscape, portrait, or a preview, and fits long names to the width. Solid background; `position` and `backgroundOpacity` apply only to the band.
+- **Serving:** the engine's WebSocket server is attached to a Node `http` server on the same port; `server/static-files.ts` serves the page: GET and HEAD only, files inside the page folder only (encoded `..` and null bytes refused), `nosniff`, `no-cache` for HTML and long caching for hashed assets, and a 503 with the build command if the page is not built. The WebSocket server is created only after the port is bound; created earlier, it rethrows a failed listen as an unhandled error.
+- **Attached screens:** `ScreenOutputs` (`apps/desktop/src/main/screens.ts`) lists displays, opens a frameless full-screen window on the chosen one loading the engine's page with `?embedded=1`, keeps it on that origin, closes it on Esc or when the display is removed, and closes all of them with the main window. IPC arguments are checked in the main process.
+- **Shared code:** `packages/engine-client` (the connection, moved from the app) and `packages/display-ui` (`Band`, `FullScreenCue`, `useCueView`) are used by both the app and the screen page. Tailwind in each app scans `packages/display-ui/src` with `@source`.
+
+Verified (Windows 11, 11 November 2026): the page loads from the engine in headless Edge at 1920×1080 and 1080×1920, connects as a display, follows the simulator, and shows the countdown; path traversal returns 404. Not yet tested: a real TV or smart TV browser, an attached second screen, AirPlay.
 
 ## 7. Ableton device (`integrations/ableton`)
 

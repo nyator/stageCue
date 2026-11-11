@@ -6,6 +6,8 @@ Every StageCue component talks to the engine over one WebSocket connection. The 
 - **Version:** `1`
 - **Frames:** UTF-8 JSON text frames of at most 64 KiB. Binary frames are rejected.
 
+The same port also answers plain HTTP: `GET /` returns the full-screen cue page for TVs and browsers, which then connects back over WebSocket as a `display` client. See technical-design.md §6b.
+
 ## Envelope
 
 Every message in both directions has this shape:
