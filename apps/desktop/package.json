@@ -1,7 +1,7 @@
 {
   "name": "@stagecue/desktop",
   "private": true,
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "StageCue Electron desktop application.",
   "type": "module",
   "main": "./out/main/index.js",

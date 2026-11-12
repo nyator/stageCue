@@ -59,15 +59,16 @@ Work continues on the MacBook, which has Ableton Live 12 Suite, Max 9 and ProPre
 
 ## Commands
 
-| Command                                               | Does                                                                                            |
-| ----------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| `pnpm dev`                                            | Engine (watch mode) and app together                                                            |
-| `pnpm simulate [-- --tempo 120]`                      | Pretend Ableton; space, arrows, r, q in its terminal. Stop it when the real device is connected |
-| `pnpm --filter @stagecue/ableton build:device`        | Regenerates `StageCue.amxd` from `integrations/ableton/src/build-device.ts`                     |
-| `pnpm check`                                          | Typecheck, lint, tests, format check. Must pass before calling work done                        |
-| `pnpm build`                                          | Builds the app                                                                                  |
-| `STAGECUE_OUTPUT_SNAPSHOT=frame.png pnpm dev:desktop` | Saves one output frame with transparency                                                        |
-| `STAGECUE_ENGINE_HOST=127.0.0.1 pnpm dev:engine`      | Engine for this computer only                                                                   |
+| Command                                               | Does                                                                                                                  |
+| ----------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| `pnpm dev`                                            | Engine (watch mode) and app together                                                                                  |
+| `pnpm simulate [-- --tempo 120]`                      | Pretend Ableton; space, arrows, r, q in its terminal. Stop it when the real device is connected                       |
+| `pnpm --filter @stagecue/ableton build:device`        | Regenerates `StageCue.amxd` from `integrations/ableton/src/build-device.ts`                                           |
+| `pnpm --filter @stagecue/ableton build:installers`    | Builds `StageCue-Ableton-<version>.pkg` (macOS) and `.exe` (Windows, needs NSIS) into `integrations/ableton/release/` |
+| `pnpm check`                                          | Typecheck, lint, tests, format check. Must pass before calling work done                                              |
+| `pnpm build`                                          | Builds the app                                                                                                        |
+| `STAGECUE_OUTPUT_SNAPSHOT=frame.png pnpm dev:desktop` | Saves one output frame with transparency                                                                              |
+| `STAGECUE_ENGINE_HOST=127.0.0.1 pnpm dev:engine`      | Engine for this computer only                                                                                         |
 
 ## Where things are
 

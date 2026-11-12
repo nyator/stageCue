@@ -1,0 +1,73 @@
+#!/bin/bash
+#
+# StageCue for Ableton Live: runs at the end of the macOS installer (as root).
+#
+# Copies the device into the Ableton User Library of the person who is logged
+# in, so it shows in Live's browser under
+# User Library › Presets › Audio Effects › Max Audio Effect › StageCue.
+#
+# The User Library can be anywhere (Live's Settings › Library), so read it from
+# the newest Live version's Library.cfg, the same way the StageCue app does
+# (apps/desktop/src/main/ableton-device.ts). Without one (Live never opened),
+# use Live's default location.
+#
+# The device files sit next to this script: pkgbuild --scripts packs the whole
+# folder, and Installer runs the script from there.
+
+set -u
+
+HERE="$(cd "$(dirname "$0")" && pwd)"
+FILES=("StageCue.amxd" "stagecue-lom.js" "stagecue-bridge.js" "package.json")
+BROWSER_PATH="Presets/Audio Effects/Max Audio Effect/StageCue"
+
+log() { echo "StageCue: $*"; }
+
+# The person at the screen, not root.
+user="$(stat -f%Su /dev/console)"
+if [ -z "$user" ] || [ "$user" = "root" ] || [ "$user" = "loginwindow" ]; then
+  log "No one is logged in at the screen; cannot tell whose Ableton to set up."
+  exit 1
+fi
+home="$(dscl . -read "/Users/$user" NFSHomeDirectory | awk '{print $2}')"
+if [ ! -d "$home" ]; then
+  log "Could not find the home folder of $user."
+  exit 1
+fi
+
+# Newest Library.cfg across installed Live versions.
+config="$(ls -t "$home"/Library/Preferences/Ableton/Live\ */Library.cfg 2>/dev/null | head -n 1)"
+
+library=""
+if [ -n "$config" ]; then
+  # <UserLibrary> … <ProjectName Value="User Library" /> <ProjectPath Value="/Users/x/Music/Ableton" />
+  block="$(awk '/<UserLibrary>/{inside=1} inside{print} /<\/UserLibrary>/{exit}' "$config")"
+  path_value="$(printf '%s\n' "$block" | sed -n 's/.*<ProjectPath Value="\([^"]*\)".*/\1/p' | head -n 1)"
+  name_value="$(printf '%s\n' "$block" | sed -n 's/.*<ProjectName Value="\([^"]*\)".*/\1/p' | head -n 1)"
+  path_value="${path_value//&amp;/&}"
+  path_value="${path_value//&quot;/\"}"
+  name_value="${name_value//&amp;/&}"
+  if [ -n "$path_value" ]; then
+    library="$path_value/${name_value:-User Library}"
+  fi
+fi
+if [ -z "$library" ]; then
+  library="$home/Music/Ableton/User Library"
+fi
+
+target="$library/$BROWSER_PATH"
+log "Installing for $user into $target"
+
+# Create and copy as that person, so they own the files and folders.
+if ! sudo -u "$user" mkdir -p "$target"; then
+  log "Could not create $target"
+  exit 1
+fi
+for file in "${FILES[@]}"; do
+  if ! sudo -u "$user" cp -f "$HERE/$file" "$target/$file"; then
+    log "Could not copy $file"
+    exit 1
+  fi
+done
+
+log "Done."
+exit 0

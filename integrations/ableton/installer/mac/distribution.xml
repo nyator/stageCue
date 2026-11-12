@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- productbuild layout for the StageCue for Ableton Live installer. __VERSION__ is filled in by build-installers.ts. -->
+<installer-gui-script minSpecVersion="2">
+    <title>StageCue for Ableton Live</title>
+    <welcome file="welcome.html" mime-type="text/html" />
+    <conclusion file="conclusion.html" mime-type="text/html" />
+    <options customize="never" require-scripts="false" hostArchitectures="arm64,x86_64" />
+    <domains enable_localSystem="true" />
+    <choices-outline>
+        <line choice="default">
+            <line choice="com.stagecue.ableton-device" />
+        </line>
+    </choices-outline>
+    <choice id="default" />
+    <choice id="com.stagecue.ableton-device" visible="false">
+        <pkg-ref id="com.stagecue.ableton-device" />
+    </choice>
+    <pkg-ref id="com.stagecue.ableton-device" version="__VERSION__" onConclusion="none">device.pkg</pkg-ref>
+</installer-gui-script>

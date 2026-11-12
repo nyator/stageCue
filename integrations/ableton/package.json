@@ -1,7 +1,7 @@
 {
   "name": "@stagecue/ableton",
   "private": true,
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Ableton Live integration for StageCue.",
   "type": "module",
   "exports": {
@@ -10,6 +10,7 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "build:device": "node src/build-device.ts",
-    "inspect:device": "node src/inspect-amxd.ts"
+    "inspect:device": "node src/inspect-amxd.ts",
+    "build:installers": "node installer/build-installers.ts"
   }
 }
