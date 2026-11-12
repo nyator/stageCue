@@ -4,6 +4,7 @@ import path from 'node:path'
 import { loadConfig } from './config.ts'
 import { migrate, openDatabase } from './db/database.ts'
 import { LiveSession } from './live/live-session.ts'
+import { startAnnouncer } from './discovery/announcer.ts'
 import { createLogger } from './logger.ts'
 import { lanAddresses } from './network.ts'
 import { recordDeviceSeen } from './repositories/devices.ts'
@@ -34,6 +35,7 @@ async function main(): Promise<void> {
     })
   }
   const addresses = lanAddresses(config.host)
+  const instanceId = randomUUID()
 
   let server: EngineServer
   try {
@@ -41,7 +43,7 @@ async function main(): Promise<void> {
       host: config.host,
       port: config.port,
       logger: logger.child('ws'),
-      instanceId: randomUUID(),
+      instanceId,
       startedAt: Date.now(),
       schemaVersion,
       addresses,
@@ -85,12 +87,21 @@ async function main(): Promise<void> {
   }
 
   const engine = server
+  const announcer = startAnnouncer({
+    host: config.host,
+    port: engine.port,
+    instanceId,
+    logger: logger.child('discovery'),
+  })
   live.onChange(() => engine.broadcast('live.state', live.snapshot()))
 
   if (addresses.length > 0) {
-    logger.info('Point the Ableton device at one of these addresses', {
-      addresses: addresses.map((address) => `${address}:${engine.port}`),
-    })
+    logger.info(
+      'The Ableton device finds StageCue by itself; to type an address, use one of these',
+      {
+        addresses: addresses.map((address) => `${address}:${engine.port}`),
+      },
+    )
     logger.info('TVs and browsers can show the cue at', {
       urls: addresses.map((address) => `http://${address}:${engine.port}/`),
     })
@@ -103,6 +114,7 @@ async function main(): Promise<void> {
     }
     shuttingDown = true
     logger.info('Shutting down', { signal })
+    await announcer.close()
     await engine.close()
     db.close()
   }

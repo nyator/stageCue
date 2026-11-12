@@ -8,6 +8,7 @@ import {
   saveCopy,
   type InstallResult,
 } from './ableton-device'
+import { EngineProcess, shouldStartEngine } from './engine-process'
 import { OutputController } from './output/output'
 import { ScreenOutputs } from './screens'
 
@@ -34,6 +35,8 @@ function loadPage(window: BrowserWindow, page: 'index' | 'output'): Promise<void
 
 // Created once the app is ready: the screen module needs it.
 let screens: ScreenOutputs
+
+const engine = new EngineProcess()
 
 const output = new OutputController({
   preload,
@@ -135,6 +138,8 @@ void app.whenReady().then(() => {
     )
   })
 
+  if (shouldStartEngine()) engine.start()
+
   screens = new ScreenOutputs()
   // The renderer is trusted, but check what crosses the bridge anyway.
   ipcMain.handle('screens:list', () => screens.list())
@@ -158,6 +163,8 @@ void app.whenReady().then(() => {
     }
   })
 })
+
+app.on('will-quit', () => engine.stop())
 
 app.on('window-all-closed', () => {
   screens.closeAll()

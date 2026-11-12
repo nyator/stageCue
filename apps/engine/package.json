@@ -7,7 +7,8 @@
   "scripts": {
     "dev": "node --watch src/index.ts",
     "start": "node src/index.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "build": "node build.ts"
   },
   "dependencies": {
     "@stagecue/arrangement": "workspace:*",
@@ -17,6 +18,7 @@
     "zod": "^4.6.7"
   },
   "devDependencies": {
-    "@types/ws": "^8.18.2"
+    "@types/ws": "^8.18.2",
+    "esbuild": "^0.28.2"
   }
 }

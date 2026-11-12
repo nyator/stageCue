@@ -21,3 +21,6 @@ Thumbs.db
 
 # Claude Code session cache
 .claude/.cache/
+
+# Packaged apps
+release/

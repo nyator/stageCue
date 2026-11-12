@@ -216,13 +216,14 @@ const locators = text('obj-locators', '0 locators', [WIDTH - PAD - 10 - 80, 85, 
   right: true,
 })
 
-// Where the StageCue app is. 127.0.0.1 when it runs on this computer.
+// Where the StageCue app is. Left empty, the device finds StageCue on the network by itself;
+// an address typed here (and Return) overrides that.
 text('obj-address-label', 'STAGECUE ADDRESS', [PAD, 119, 140, 14], {
   size: 8,
   color: COLOR.faint,
   bold: true,
 })
-text('obj-address-hint', 'Type it, then press Return', [WIDTH - PAD - 150, 119, 150, 14], {
+text('obj-address-hint', 'Empty finds it by itself', [WIDTH - PAD - 150, 119, 150, 14], {
   size: 8,
   color: COLOR.faint,
   right: true,

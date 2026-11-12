@@ -62,8 +62,8 @@ Most of the time the band shows only the section the choir is in, with its extra
 Before the first service:
 
 1. **Connect stage and media desk with a network cable** if you can, or the church's own Wi-Fi. Avoid a phone hotspot.
-2. **Give the media computer a fixed address** (a reserved address on the router, or a static IP), so the address typed into the Ableton device never changes.
-3. **Set up the device once** (see Connecting Ableton below): on the media computer, Setup → Ableton → **Save a copy for another computer**; install it on the stage Mac and type in the address Setup shows.
+2. **A fixed address for the media computer** (a reserved address on the router, or a static IP) is only needed if the network blocks broadcasts (some guest Wi-Fi does) and the address has to be typed into the Ableton device.
+3. **Set up the device once** (see Connecting Ableton below): on the media computer, Setup → Ableton → **Save a copy for another computer**; install it on the stage Mac. The device finds StageCue on the network by itself.
 4. **Allow StageCue on the network.** On a Mac, allow incoming connections when macOS asks. On Windows, mark the church network as Private.
 5. **Check the timing:** play a song and watch the 4, 3, 2, 1 on ProPresenter's output. If it lands after the beat, raise **Style → Show cues early** until it lands on it.
 
@@ -78,8 +78,9 @@ Needs Live 12 Suite (or Live 12 with Max for Live). Max 9, which comes with it, 
 1. Start StageCue (`pnpm dev`). Stop the simulator if it is running.
 2. In StageCue's **Setup** page, click **Add to Ableton on this computer**. It copies the device into Live's User Library (found from Live's preferences). In Live's browser, open User Library › Presets › Audio Effects › Max Audio Effect › StageCue and drag it onto any track. The master track is fine; audio passes through untouched. To have it in every new set, save a set with it as Live's default set.
    For a music computer that does not run StageCue, click **Save a copy for another computer**, take the `StageCue` folder across, and drag the whole folder onto User Library in Live's browser there.
-3. In the device's address field, type the engine's address and press Return: `127.0.0.1:7417` when StageCue runs on the same computer, or the address the engine prints at startup when it runs on another one. The device remembers it.
-4. The device's light turns green and shows **Connected to StageCue**, with the section under the playhead and the number of locators. Press play.
+3. Leave the device's address field empty: it finds StageCue on this computer or the local network by itself (StageCue announces itself on UDP port 7418) and shows **Connected to** and the computer's name. When several StageCue computers answer, it picks the one it used last time.
+   To choose one yourself, or on a network that blocks broadcasts, type the address the engine prints at startup and press Return. Clear the field and press Return to go back to finding it by itself. The device remembers either choice.
+4. The device's light turns green, with the section under the playhead and the number of locators. Press play.
 
 Keep `StageCue.amxd` next to `stagecue-lom.js`, `stagecue-bridge.js`, and `package.json`; the device loads its scripts from its own folder. After changing the device's layout in `integrations/ableton/src/build-device.ts`, rebuild it with `pnpm --filter @stagecue/ableton build:device`.
 

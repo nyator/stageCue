@@ -16,14 +16,15 @@
     "dev:screen": "pnpm --filter @stagecue/screen dev",
     "start:engine": "pnpm --filter @stagecue/engine start",
     "simulate": "pnpm --filter @stagecue/simulator start --",
-    "build": "pnpm --filter @stagecue/screen build && pnpm --filter @stagecue/desktop build",
+    "build": "pnpm --filter @stagecue/screen build && pnpm --filter @stagecue/engine build && pnpm --filter @stagecue/desktop build",
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "pnpm -r --if-present typecheck",
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "check": "pnpm typecheck && pnpm lint && pnpm test && pnpm format:check"
+    "check": "pnpm typecheck && pnpm lint && pnpm test && pnpm format:check",
+    "package:mac": "pnpm build && pnpm --filter @stagecue/desktop package:mac"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.0",

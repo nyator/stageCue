@@ -9,6 +9,7 @@
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "build:device": "node src/build-device.ts"
+    "build:device": "node src/build-device.ts",
+    "inspect:device": "node src/inspect-amxd.ts"
   }
 }

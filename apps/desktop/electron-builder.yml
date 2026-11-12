@@ -1,0 +1,54 @@
+# Packages StageCue as a normal app for the media team: no terminal, no Node.
+# Build with `pnpm package:mac` from the repository root (builds everything first).
+appId: com.stagecue.desktop
+productName: StageCue
+copyright: Copyright © 2026 Henry Nyator
+
+directories:
+  output: release
+  buildResources: build
+
+files:
+  - out/**
+  - package.json
+
+# Loaded from outside the app archive at runtime.
+extraResources:
+  # The engine, bundled into one file (apps/engine/build.ts); started by engine-process.ts.
+  - from: ../engine/dist/engine.mjs
+    to: engine/engine.mjs
+  # The TV page the engine serves.
+  - from: ../screen/dist
+    to: screen
+  # The Ableton device, copied into Live's User Library by ableton-device.ts.
+  - from: ../../integrations/ableton/device
+    to: ableton-device
+    filter:
+      - StageCue.amxd
+      - stagecue-lom.js
+      - stagecue-bridge.js
+      - package.json
+
+# Native code cannot be loaded from inside the archive: the NDI binding and library.
+asarUnpack:
+  - '**/*.node'
+  - '**/*.dylib'
+  - '**/*.dll'
+
+mac:
+  category: public.app-category.music
+  target:
+    - target: dmg
+  # Signed ad hoc ("-") until there is an Apple Developer ID: macOS then asks once before
+  # opening it (README, "Installing StageCue on a Mac"). Unsigned, Apple silicon calls it damaged.
+  identity: '-'
+  hardenedRuntime: true
+  entitlements: build/entitlements.mac.plist
+  entitlementsInherit: build/entitlements.mac.plist
+  extendInfo:
+    NSLocalNetworkUsageDescription: StageCue finds the Ableton device and sends the band to ProPresenter and TVs on this network.
+    NSBonjourServices:
+      - _ndi._tcp
+
+dmg:
+  title: StageCue

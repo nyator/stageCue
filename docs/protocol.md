@@ -173,6 +173,31 @@ Sent right after `welcome`, then on every change.
 
 Displays compute the cue themselves (`computeCueView` in `packages/arrangement`), moving `beat` forward from the moment they received the message.
 
+## Finding StageCue
+
+The engine announces itself so the Ableton device needs no typed address. Code: `packages/event-protocol/src/discovery.ts` (engine side, tested) and `stagecue-bridge.js` (device side, same rules by hand).
+
+Every second the engine sends one UDP datagram to port **7418**: to `127.0.0.1`, and, when it listens on all interfaces, to the directed broadcast address of each IPv4 network (`192.168.1.255` for `192.168.1.20/24`). With `STAGECUE_ENGINE_HOST=127.0.0.1` it announces on loopback only.
+
+```json
+{
+  "app": "stagecue",
+  "v": 1,
+  "port": 7417,
+  "id": "<changes every engine start>",
+  "name": "Media-Mac"
+}
+```
+
+The device, while its address field is empty:
+
+- connects to `ws://<address the datagram came from>:<port>`; it never uses an address written in the datagram;
+- ignores datagrams from anywhere but loopback, `10/8`, `172.16/12`, `192.168/16`, and `169.254/16`, larger than 512 bytes, or with another `app` or `v`;
+- prefers the computer it last connected to (`lastEngine` in `~/.stagecue/ableton-device.json`), waiting up to 1.5 s for it, otherwise takes the first one heard; it forgets an engine not heard for 3.5 s;
+- stays with the engine it is connected to until that connection closes.
+
+A typed address overrides all of this. Settings saved by older devices with `127.0.0.1:7417` (the old default) count as empty.
+
 ## Close codes
 
 | Code   | Meaning                                 |
