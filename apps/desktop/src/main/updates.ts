@@ -6,15 +6,16 @@ import type { UpdateStatus } from '@stagecue/shared-types'
  * Download button opens the file's page in the browser; the person installs it
  * the usual way (drag into Applications).
  *
- * Releases come from GitHub (`UPDATE_REPOSITORY`). Reading them needs no
- * sign-in only while that repository is public: for a private one GitHub
- * answers 404, and the check quietly finds nothing.
+ * Releases come from GitHub (`UPDATE_REPOSITORY`), a public repository that
+ * holds only the installers, so no sign-in is needed. (For a private one GitHub
+ * answers 404, and the check would quietly find nothing.)
  *
  * Fully automatic updates (download and install on restart) need the app
  * signed with an Apple Developer ID; see technical-design.md §10.
  */
 
-export const UPDATE_REPOSITORY = 'nyator/stageCue'
+/** Public, holds only installers and release notes; the code stays in the private repository. */
+export const UPDATE_REPOSITORY = 'nyator/stagecue-releases'
 const CHECK_EVERY_MS = 6 * 60 * 60 * 1000
 const FIRST_CHECK_AFTER_MS = 10_000
 
