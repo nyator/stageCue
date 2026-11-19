@@ -7,6 +7,7 @@ import { PageHeader } from '../../ui/page'
 import { AbletonPanel, BrowsersPanel, EnginePanel, ProPresenterPanel, ScreensPanel } from './panels'
 import { PANEL_ID, tabId, type NodeId } from './signal'
 import { SignalPath } from './SignalPath'
+import { UpdateBanner } from './UpdateBanner'
 import { useSignalPath } from './use-signal-path'
 
 /**
@@ -29,6 +30,7 @@ export function SetupPage() {
   return (
     <div className="mx-auto flex max-w-[90rem] flex-col px-8 py-6">
       <PageHeader title="Setup" status={path.verdict.text} tone={path.verdict.tone} />
+      <UpdateBanner />
 
       <SignalPath
         nodes={path.nodes}

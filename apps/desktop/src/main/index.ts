@@ -10,13 +10,17 @@ import {
 } from './ableton-device'
 import { EngineProcess, shouldStartEngine } from './engine-process'
 import { OutputController } from './output/output'
+import { isGitHubUrl, UpdateChecker } from './updates'
 import { ScreenOutputs } from './screens'
 
 const windowDirectory = path.dirname(fileURLToPath(import.meta.url))
 const devServerUrl = process.env.ELECTRON_RENDERER_URL
 const preload = path.join(windowDirectory, '../preload/index.cjs')
 // Sandboxed preloads cannot read the OS, so pass what they need as arguments.
-const additionalArguments = [`--stagecue-device-name=${os.hostname()}`]
+const additionalArguments = [
+  `--stagecue-device-name=${os.hostname()}`,
+  `--stagecue-app-version=${app.getVersion()}`,
+]
 
 function isAllowedNavigation(url: string): boolean {
   if (devServerUrl && url.startsWith(devServerUrl)) {
@@ -37,6 +41,14 @@ function loadPage(window: BrowserWindow, page: 'index' | 'output'): Promise<void
 let screens: ScreenOutputs
 
 const engine = new EngineProcess()
+
+// Looks for a newer StageCue on GitHub. Only in the installed app, or when asked for while
+// developing; STAGECUE_UPDATE_REPO (development only) points it at another repository to test.
+const updates = new UpdateChecker(
+  app.getVersion(),
+  (!app.isPackaged && process.env.STAGECUE_UPDATE_REPO) || undefined,
+)
+const checkForUpdates = app.isPackaged || process.env.STAGECUE_UPDATE_CHECK === '1'
 
 const output = new OutputController({
   preload,
@@ -90,9 +102,13 @@ function createWindow(): BrowserWindow {
   const stopScreenUpdates = screens.onChange((list) => {
     if (!window.isDestroyed()) window.webContents.send('screens:changed', list)
   })
+  const stopUpdateNews = updates.onStatus((status) => {
+    if (!window.isDestroyed()) window.webContents.send('update:status', status)
+  })
   window.on('closed', () => {
     stopForwarding()
     stopScreenUpdates()
+    stopUpdateNews()
     // Screen windows would otherwise keep the app running with no way to control them.
     screens.closeAll()
     if (process.platform !== 'darwin') app.quit()
@@ -110,6 +126,14 @@ void app.whenReady().then(() => {
   })
 
   ipcMain.handle('output:status', () => output.status)
+  ipcMain.handle('update:status', () => updates.status)
+  ipcMain.on('update:open', (_event, which: unknown) => {
+    const status = updates.status
+    if (status.state !== 'available') return
+    const url = which === 'page' ? status.pageUrl : status.downloadUrl
+    if (isGitHubUrl(url)) void shell.openExternal(url)
+  })
+  if (checkForUpdates) updates.start()
   ipcMain.on('output:size', (_event, size: unknown) => {
     if (size === '1080p' || size === '4k') output.setSize(size)
   })
@@ -164,7 +188,10 @@ void app.whenReady().then(() => {
   })
 })
 
-app.on('will-quit', () => engine.stop())
+app.on('will-quit', () => {
+  updates.stop()
+  engine.stop()
+})
 
 app.on('window-all-closed', () => {
   screens.closeAll()

@@ -52,6 +52,24 @@ export interface DesktopBridge {
   saveAbletonDevice(): Promise<DeviceCopyResult | null>
   /** Shows the installed device in Finder or Explorer. */
   revealAbletonDevice(): void
+  /** The app's own version, such as "0.1.1". */
+  appVersion: string
+  getUpdateStatus(): Promise<UpdateStatus>
+  /** Returns a function that stops listening. */
+  onUpdateStatus(listener: (status: UpdateStatus) => void): () => void
+  /** Opens the new version's download (or its release page) in the browser. */
+  openUpdate(which: 'download' | 'page'): void
 }
+
+/** Whether a newer StageCue has been published. The app only tells; it never installs. */
+export type UpdateStatus =
+  | { state: 'idle' }
+  | {
+      state: 'available'
+      version: string
+      currentVersion: string
+      downloadUrl: string
+      pageUrl: string
+    }
 
 export type DeviceCopyResult = { ok: true; folder: string } | { ok: false; reason: string }

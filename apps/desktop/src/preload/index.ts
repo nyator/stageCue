@@ -4,6 +4,7 @@ import type {
   DeviceCopyResult,
   OutputStatus,
   ScreenInfo,
+  UpdateStatus,
 } from '@stagecue/shared-types'
 
 const DEVICE_NAME_FLAG = '--stagecue-device-name='
@@ -11,8 +12,23 @@ const deviceName =
   process.argv.find((arg) => arg.startsWith(DEVICE_NAME_FLAG))?.slice(DEVICE_NAME_FLAG.length) ??
   'StageCue Desktop'
 
+const APP_VERSION_FLAG = '--stagecue-app-version='
+const appVersion =
+  process.argv.find((arg) => arg.startsWith(APP_VERSION_FLAG))?.slice(APP_VERSION_FLAG.length) ??
+  '0.0.0'
+
 const stagecue = {
   deviceName,
+  appVersion,
+  getUpdateStatus: () => ipcRenderer.invoke('update:status') as Promise<UpdateStatus>,
+  onUpdateStatus: (listener) => {
+    const handler = (_event: Electron.IpcRendererEvent, status: UpdateStatus) => listener(status)
+    ipcRenderer.on('update:status', handler)
+    return () => {
+      ipcRenderer.removeListener('update:status', handler)
+    }
+  },
+  openUpdate: (which) => ipcRenderer.send('update:open', which),
   versions: {
     electron: process.versions.electron ?? 'unknown',
     chrome: process.versions.chrome ?? 'unknown',
