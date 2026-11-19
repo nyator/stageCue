@@ -243,7 +243,7 @@ Code is platform-neutral today (Electron, Node, `node:sqlite`, `ws`). The dev en
 
 The installed app checks GitHub's latest release of `UPDATE_REPOSITORY` (`apps/desktop/src/main/updates.ts`) 10 s after starting and every 6 hours. If its version is newer, Setup shows a banner with **Download** (the `.dmg` for this Mac's chip, or the Windows `.exe`, never the `StageCue-Ableton-…` device installers) and **What's new** (the release page). It only tells: the volunteer installs by dragging into Applications. Links are opened only if they are `https://github.com/…`. Drafts and pre-releases are ignored; offline or errors are silent.
 
-- Releases are published to the public `nyator/stagecue-releases` (installers and notes only; the code stays private), because GitHub answers 404 for a private repository and the banner would never appear. Publish each version there, with the app `.dmg` and the current Ableton installers.
+- Releases are published to the public website repository, `nyator/stagecue-site` (https://nyator.github.io/stagecue-site/), whose Download page lists the newest release's files: `.dmg` for the Mac app, `StageCue-Setup-*.exe` for the Windows app, and `StageCue-Ableton-*.pkg` / `.exe` for the device. The code stays private; GitHub answers 404 for a private repository, so the banner could not read releases there. Publish each version to the website repository only.
 - Tested 19 November 2026: unit tests for versions, asset choice, parsing and links; the dev app pointed at a public repository (`STAGECUE_UPDATE_REPO`, development only) showed the banner on Setup with the right versions.
 - Self-installing updates (electron-updater) need the app signed with a Developer ID: macOS refuses to replace an unsigned app.
 
