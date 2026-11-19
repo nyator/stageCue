@@ -39,7 +39,7 @@ Work continues on the MacBook, which has Ableton Live 12 Suite, Max 9 and ProPre
 - **The media team installs an app; they never run code.** No terminal, no `pnpm dev`, no Node, no Xcode on a church computer. StageCue must ship as a normal Mac app (a `.dmg` with StageCue.app) that starts its own engine.
 - **The Ableton device must be one file, set up once.** Today it is four files that must stay together (`StageCue.amxd`, `stagecue-lom.js`, `stagecue-bridge.js`, `package.json`), and the address has to be typed in. Wanted: a single `StageCue.amxd`, dropped on the master track once (and saved in Live's default set), that finds StageCue on the network by itself.
 - **Where to run what:** StageCue on the same computer as ProPresenter; Ableton on the stage computer with only the device (README, "Setting up at church").
-- **The band (singers' feedback):** most of the time only the current section; NEXT only in the last 4 bars; no arrow (apps/desktop/DESIGN.md, "The band").
+- **The band (singers' feedback):** most of the time only the current section; NEXT only near the end of a section (8 bars by default, chosen in Style; 4 was too late); no arrow (apps/desktop/DESIGN.md, "The band").
 
 **Proven tonight** (Mac with Ableton, Windows PC with StageCue, iPhone hotspot): steady link, Wi-Fi drop recovery, TV page in Safari, band to the Mac over NDI. Three bugs found and fixed (screen takeover by a second bridge, blank TV page on plain http, screen-window navigation). Details: technical-design.md §11.1.
 

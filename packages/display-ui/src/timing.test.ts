@@ -1,6 +1,6 @@
 import type { CueView } from '@stagecue/arrangement'
 import { describe, expect, it } from 'vitest'
-import { changeIsNear, NEXT_LEAD_BARS } from './timing.ts'
+import { changeIsNear } from './timing.ts'
 
 const cue = (label: string) => ({ label, detail: null, beat: 0, blank: false })
 
@@ -16,19 +16,25 @@ const view = (countdown: CueView['countdown'], next: CueView['next'] = cue('Brid
 
 describe('changeIsNear', () => {
   it('stays quiet early in a section', () => {
-    expect(changeIsNear(view({ bars: NEXT_LEAD_BARS + 1, finalBeats: null }))).toBe(false)
+    expect(changeIsNear(view({ bars: 9, finalBeats: null }), 8)).toBe(false)
   })
 
-  it('shows NEXT in the last bars before the change', () => {
-    expect(changeIsNear(view({ bars: NEXT_LEAD_BARS, finalBeats: null }))).toBe(true)
-    expect(changeIsNear(view({ bars: 1, finalBeats: 3 }))).toBe(true)
+  it('shows NEXT from the chosen number of bars before the change', () => {
+    expect(changeIsNear(view({ bars: 8, finalBeats: null }), 8)).toBe(true)
+    expect(changeIsNear(view({ bars: 5, finalBeats: null }), 4)).toBe(false)
+    expect(changeIsNear(view({ bars: 16, finalBeats: null }), 16)).toBe(true)
+    expect(changeIsNear(view({ bars: 1, finalBeats: 3 }), 4)).toBe(true)
+  })
+
+  it('shows NEXT for the whole section when the lead is 0', () => {
+    expect(changeIsNear(view({ bars: 40, finalBeats: null }), 0)).toBe(true)
   })
 
   it('stays quiet while Ableton is stopped (no countdown)', () => {
-    expect(changeIsNear(view(null))).toBe(false)
+    expect(changeIsNear(view(null), 0)).toBe(false)
   })
 
   it('stays quiet in the last section, with nothing next', () => {
-    expect(changeIsNear(view({ bars: 2, finalBeats: null }, null))).toBe(false)
+    expect(changeIsNear(view({ bars: 2, finalBeats: null }, null), 8)).toBe(false)
   })
 })

@@ -49,7 +49,7 @@ export function Band({ view, settings }: BandProps) {
   const detail = settings.showDetail ? lead.detail : null
 
   const following = comingUp || !settings.showNext ? null : next
-  const near = following !== null && changeIsNear(view)
+  const near = following !== null && changeIsNear(view, settings.nextLeadBars)
   const finalBeats = settings.showCountdown ? (countdown?.finalBeats ?? null) : null
   const bars = settings.showCountdown && countdown && finalBeats === null ? countdown.bars : null
   const strength = finalBeats !== null ? pulse(view.beatPhase) : 0

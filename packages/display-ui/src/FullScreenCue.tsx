@@ -43,7 +43,8 @@ export function FullScreenCue({ view, settings, status = null }: FullScreenCuePr
   const nextLabel = leadIsNext ? null : next?.label
   // Like the band: NEXT only in the last bars before a change, so most of the time
   // the screen shows just the section the choir is in. Its row keeps its height.
-  const near = nextLabel !== undefined && nextLabel !== null && changeIsNear(view)
+  const near =
+    nextLabel !== undefined && nextLabel !== null && changeIsNear(view, settings.nextLeadBars)
 
   return (
     <div

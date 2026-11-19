@@ -14,6 +14,14 @@ const OUTPUT_SIZE_OPTIONS = [
   { value: '4k', label: '4K' },
 ] as const
 
+/** Bars before a change that NEXT appears. "0" is the whole section. */
+const NEXT_LEAD_OPTIONS = [
+  { value: '4', label: '4 bars' },
+  { value: '8', label: '8 bars' },
+  { value: '16', label: '16 bars' },
+  { value: '0', label: 'Whole section' },
+] as const
+
 const POSITIONS = [
   { value: 'top', label: 'Top' },
   { value: 'bottom', label: 'Bottom' },
@@ -30,6 +38,7 @@ export function DisplaySettingsPanel({ value, onChange }: DisplaySettingsPanelPr
     show: useId(),
     output: useId(),
     outputSize: useId(),
+    nextLead: useId(),
   }
 
   return (
@@ -104,6 +113,20 @@ export function DisplaySettingsPanel({ value, onChange }: DisplaySettingsPanelPr
             checked={value.showNext}
             onChange={(v) => set('showNext', v)}
           />
+          {value.showNext ? (
+            <div className="-mt-1 flex flex-col gap-2 pl-0.5">
+              <span id={ids.nextLead} className="text-xs text-muted">
+                Show it before the change
+              </span>
+              <Segmented
+                labelledBy={ids.nextLead}
+                options={NEXT_LEAD_OPTIONS}
+                value={String(value.nextLeadBars) as (typeof NEXT_LEAD_OPTIONS)[number]['value']}
+                onChange={(bars) => set('nextLeadBars', Number(bars))}
+                stretch
+              />
+            </div>
+          ) : null}
           <Switch
             label="Countdown"
             description="Bars to go, then 4, 3, 2, 1 on the beat"

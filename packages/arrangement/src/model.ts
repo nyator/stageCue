@@ -133,6 +133,11 @@ export const displaySettingsSchema = z.object({
   scale: z.number().min(0.75).max(1.5).default(1),
   showDetail: z.boolean().default(true),
   showNext: z.boolean().default(true),
+  /**
+   * How many bars before a change NEXT appears, so singers can get ready. 0 shows
+   * it for the whole section. Was a fixed 4 until 19 November 2026: too late.
+   */
+  nextLeadBars: z.int().min(0).max(64).default(8),
   showCountdown: z.boolean().default(true),
   showProgress: z.boolean().default(true),
   /** The NDI picture size. Match ProPresenter's output; 4K costs about four times the work. */
