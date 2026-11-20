@@ -64,18 +64,18 @@ StageCue reads the section markers from the DAW as the song plays and shows the 
 
 ### 6.2 What the choir sees (the band)
 
-| ID  | Requirement                                                                                                                      |
-| --- | -------------------------------------------------------------------------------------------------------------------------------- |
-| B1  | The current section name, large, under a small NOW heading.                                                                      |
-| B2  | The extra line under it, when the locator has one; the next section's extra line under NEXT too.                                 |
-| B3  | The next section's name under a NEXT heading in the highlight colour, nearly as large as the current one, so singers read ahead. |
-| B4  | Bars remaining until the next section, as a number between NOW and NEXT (an arrow when there is no countdown).                   |
-| B5  | In the last bar before the next section, a large countdown on each beat (4, 3, 2, 1), pulsing in time.                           |
-| B6  | A progress bar across the full width of the band that fills through the current section and is full as the next section starts.  |
-| B7  | Countdown, pulse, and progress follow Ableton's tempo and time signature, including tempo changes, to within one video frame.    |
-| B8  | Before the first locator, the band shows the first section as “Coming up”, with the countdown.                                   |
-| B9  | Lines with nothing to show take no space: a section without an extra line, or with no next section, gets a shorter band.         |
-| B10 | Reads left to right as one phrase, NOW → countdown → NEXT, centred on screen; alone and centred when there is no next section.   |
+| ID  | Requirement                                                                                                                                                       |
+| --- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| B1  | The current section name, large, under a small NOW heading.                                                                                                       |
+| B2  | The extra line under it, when the locator has one; the next section's extra line under NEXT too.                                                                  |
+| B3  | The next section's name under a NEXT heading in the highlight colour, nearly as large as the current one, so singers read ahead.                                  |
+| B4  | Bars remaining until the next section, as a number between NOW and NEXT (an arrow when there is no countdown).                                                    |
+| B5  | Before the next section, a large 4, 3, 2, 1, pulsing in time: across the last 2 bars by default (a number every 2 beats in 4/4), or on each beat of the last bar. |
+| B6  | A progress bar across the full width of the band that fills through the current section and is full as the next section starts.                                   |
+| B7  | Countdown, pulse, and progress follow Ableton's tempo and time signature, including tempo changes, to within one video frame.                                     |
+| B8  | Before the first locator, the band shows the first section as “Coming up”, with the countdown.                                                                    |
+| B9  | Lines with nothing to show take no space: a section without an extra line, or with no next section, gets a shorter band.                                          |
+| B10 | Reads left to right as one phrase, NOW → countdown → NEXT, centred on screen; alone and centred when there is no next section.                                    |
 
 ### 6.3 Media control
 

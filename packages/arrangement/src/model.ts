@@ -138,6 +138,12 @@ export const displaySettingsSchema = z.object({
    * it for the whole section. Was a fixed 4 until 19 November 2026: too late.
    */
   nextLeadBars: z.int().min(0).max(64).default(8),
+  /**
+   * How many bars before a change the count runs: 1 gives 4, 3, 2, 1 on each beat
+   * of the last bar (4/4); 2 gives 4, 3, 2, 1 every 2 beats across the last 2
+   * bars. Was always 1 until 20 November 2026: singers found it too late.
+   */
+  countBars: z.int().min(1).max(4).default(2),
   showCountdown: z.boolean().default(true),
   showProgress: z.boolean().default(true),
   /** The NDI picture size. Match ProPresenter's output; 4K costs about four times the work. */

@@ -22,6 +22,12 @@ const NEXT_LEAD_OPTIONS = [
   { value: '0', label: 'Whole section' },
 ] as const
 
+/** Bars before a change that the beats are counted out. */
+const COUNT_OPTIONS = [
+  { value: '1', label: 'Last bar' },
+  { value: '2', label: 'Last 2 bars' },
+] as const
+
 const POSITIONS = [
   { value: 'top', label: 'Top' },
   { value: 'bottom', label: 'Bottom' },
@@ -39,6 +45,7 @@ export function DisplaySettingsPanel({ value, onChange }: DisplaySettingsPanelPr
     output: useId(),
     outputSize: useId(),
     nextLead: useId(),
+    count: useId(),
   }
 
   return (
@@ -129,10 +136,24 @@ export function DisplaySettingsPanel({ value, onChange }: DisplaySettingsPanelPr
           ) : null}
           <Switch
             label="Countdown"
-            description="Bars to go, then 4, 3, 2, 1 on the beat"
+            description="Bars to go, then 4, 3, 2, 1 into the change"
             checked={value.showCountdown}
             onChange={(v) => set('showCountdown', v)}
           />
+          {value.showCountdown ? (
+            <div className="-mt-1 flex flex-col gap-2 pl-0.5">
+              <span id={ids.count} className="text-xs text-muted">
+                Count 4, 3, 2, 1 across the
+              </span>
+              <Segmented
+                labelledBy={ids.count}
+                options={COUNT_OPTIONS}
+                value={String(value.countBars) as (typeof COUNT_OPTIONS)[number]['value']}
+                onChange={(bars) => set('countBars', Number(bars))}
+                stretch
+              />
+            </div>
+          ) : null}
           <Switch
             label="Progress bar"
             description="Fills across the band as the section nears its end"

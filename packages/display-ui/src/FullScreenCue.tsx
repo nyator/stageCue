@@ -1,6 +1,6 @@
 import type { CueView, DisplaySettings } from '@stagecue/arrangement'
 import type { CSSProperties } from 'react'
-import { changeIsNear } from './timing.ts'
+import { changeIsNear, countIn } from './timing.ts'
 
 interface FullScreenCueProps {
   view: CueView
@@ -37,9 +37,11 @@ export function FullScreenCue({ view, settings, status = null }: FullScreenCuePr
     ? `min(${min(17)}, ${(92 / Math.max(lead.label.length * 0.62, 1)).toFixed(2)}cqw)`
     : '0'
 
-  const finalBeats = settings.showCountdown ? (countdown?.finalBeats ?? null) : null
+  const count = settings.showCountdown ? countIn(view, settings.countBars) : null
+  const finalBeats = count?.number ?? null
   const bars = settings.showCountdown && countdown && finalBeats === null ? countdown.bars : null
-  const strength = finalBeats !== null ? pulse(view.beatPhase) : 0
+  // One pulse per number: every beat in the last bar, every 2 beats over 2 bars.
+  const strength = count ? pulse(count.phase) : 0
   const nextLabel = leadIsNext ? null : next?.label
   // Like the band: NEXT only in the last bars before a change, so most of the time
   // the screen shows just the section the choir is in. Its row keeps its height.
@@ -118,10 +120,13 @@ export function FullScreenCue({ view, settings, status = null }: FullScreenCuePr
 
               {finalBeats !== null ? (
                 <span
-                  className="flex aspect-square items-center justify-center rounded-full font-bold tabular-nums"
+                  className="flex items-center justify-center rounded-full font-bold tabular-nums"
                   style={{
                     ...text(7.5),
+                    // A circle for one digit, a pill for two (12/8 counts from 12).
                     height: min(13),
+                    minWidth: min(13),
+                    paddingInline: finalBeats > 9 ? min(3) : 0,
                     color: settings.background,
                     background: settings.accent,
                     // Scale only: a glow would repaint the screen on every frame.

@@ -8,6 +8,10 @@ export interface Countdown {
   bars: number
   /** 4, 3, 2, 1 during the last bar (in 4/4); null before that. */
   finalBeats: number | null
+  /** Whole beats left before the next section, rounded up. */
+  beats: number
+  /** Beats in a bar of the current time signature. */
+  beatsPerBar: number
 }
 
 export interface CueView {
@@ -125,6 +129,8 @@ export function computeCueView(
       countdown = {
         bars: Math.ceil(remaining / perBar - EPSILON),
         finalBeats: remaining <= perBar + EPSILON ? Math.ceil(remaining - EPSILON) : null,
+        beats: Math.ceil(remaining - EPSILON),
+        beatsPerBar: perBar,
       }
     }
   }

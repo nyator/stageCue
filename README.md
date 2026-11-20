@@ -34,7 +34,7 @@ Add a locator where each section starts, and name it:
 | `Chorus \| Full choir` | **CHORUS** with “Full choir” under it |
 | `-`                    | Nothing (clears the band)             |
 
-Most of the time the band shows only the section the choir is in, with its extra line underneath and a progress bar. From 8 bars before a change (choose 4, 8, 16 or the whole section in Style), what comes next appears with the bars left, and in the last bar it counts 4, 3, 2, 1 on the beat. Inside a loop, it shows where the loop goes back to. The screen always follows Ableton: when the service goes off script, the playback engineer stops Ableton, and the media team can hide the band from the Live page until Ableton is back in step.
+Most of the time the band shows only the section the choir is in, with its extra line underneath and a progress bar. From 8 bars before a change (choose 4, 8, 16 or the whole section in Style), what comes next appears with the bars left, and it counts 4, 3, 2, 1 into the change: across the last 2 bars, a number every 2 beats (or on each beat of the last bar: Style › Count the beats). Inside a loop, it shows where the loop goes back to. The screen always follows Ableton: when the service goes off script, the playback engineer stops Ableton, and the media team can hide the band from the Live page until Ableton is back in step.
 
 ## Setting up at church: where to run what
 

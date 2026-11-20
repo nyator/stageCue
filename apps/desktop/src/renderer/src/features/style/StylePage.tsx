@@ -30,6 +30,8 @@ function sampleView(beats: number): CueView {
     countdown: {
       bars: Math.ceil(remaining / 4),
       finalBeats: remaining <= 4 ? Math.ceil(remaining) : null,
+      beats: Math.ceil(remaining),
+      beatsPerBar: 4,
     },
     beatPhase: beats % 1,
     progress: into / SAMPLE_SECTION_BEATS,

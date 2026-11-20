@@ -1,6 +1,6 @@
 import type { CueView, DisplaySettings } from '@stagecue/arrangement'
 import type { CSSProperties } from 'react'
-import { changeIsNear } from './timing.ts'
+import { changeIsNear, countIn } from './timing.ts'
 
 interface BandProps {
   view: CueView
@@ -50,9 +50,11 @@ export function Band({ view, settings }: BandProps) {
 
   const following = comingUp || !settings.showNext ? null : next
   const near = following !== null && changeIsNear(view, settings.nextLeadBars)
-  const finalBeats = settings.showCountdown ? (countdown?.finalBeats ?? null) : null
+  const count = settings.showCountdown ? countIn(view, settings.countBars) : null
+  const finalBeats = count?.number ?? null
   const bars = settings.showCountdown && countdown && finalBeats === null ? countdown.bars : null
-  const strength = finalBeats !== null ? pulse(view.beatPhase) : 0
+  // One pulse per number: every beat in the last bar, every 2 beats over 2 bars.
+  const strength = count ? pulse(count.phase) : 0
 
   return (
     <div
@@ -102,10 +104,13 @@ export function Band({ view, settings }: BandProps) {
           >
             {finalBeats !== null ? (
               <span
-                className="flex aspect-square shrink-0 items-center justify-center rounded-full font-bold tabular-nums"
+                className="flex shrink-0 items-center justify-center rounded-full font-bold tabular-nums"
                 style={{
                   ...size(3),
+                  // A circle for one digit, a pill for two (12/8 counts from 12).
                   height: space(4.8),
+                  minWidth: space(4.8),
+                  paddingInline: space(finalBeats > 9 ? 1 : 0),
                   color: settings.background,
                   background: settings.accent,
                   // Scale only: a glow would repaint the band on every frame.

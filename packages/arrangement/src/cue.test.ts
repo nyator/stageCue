@@ -85,18 +85,26 @@ describe('computeCueView in auto mode', () => {
     expect(computeCueView(cues, at(16), { mode: 'auto' }).countdown).toEqual({
       bars: 8,
       finalBeats: null,
+      beats: 32,
+      beatsPerBar: 4,
     })
     expect(computeCueView(cues, at(43.5), { mode: 'auto' }).countdown).toEqual({
       bars: 2,
       finalBeats: null,
+      beats: 5,
+      beatsPerBar: 4,
     })
     expect(computeCueView(cues, at(44), { mode: 'auto' }).countdown).toEqual({
       bars: 1,
       finalBeats: 4,
+      beats: 4,
+      beatsPerBar: 4,
     })
     expect(computeCueView(cues, at(46.2), { mode: 'auto' }).countdown).toEqual({
       bars: 1,
       finalBeats: 2,
+      beats: 2,
+      beatsPerBar: 4,
     })
     expect(computeCueView(cues, at(47.9), { mode: 'auto' }).countdown?.finalBeats).toBe(1)
   })
@@ -106,10 +114,15 @@ describe('computeCueView in auto mode', () => {
     expect(computeCueView(cues, at(44, true, sixEight), { mode: 'auto' }).countdown).toEqual({
       bars: 2,
       finalBeats: null,
+      // Four quarter notes left are eight eighth-note beats: the 2-bar count shows 8.
+      beats: 8,
+      beatsPerBar: 6,
     })
     expect(computeCueView(cues, at(46, true, sixEight), { mode: 'auto' }).countdown).toEqual({
       bars: 1,
       finalBeats: 4,
+      beats: 4,
+      beatsPerBar: 6,
     })
     expect(
       computeCueView(cues, at(45.5, true, sixEight), { mode: 'auto' }).countdown?.finalBeats,
@@ -258,7 +271,7 @@ describe('looping', () => {
     const view = computeCueView(cues, inLoop(72), { mode: 'auto' })
     expect(view.current?.label).toBe('Chorus')
     expect(view.next?.label).toBe('Chorus')
-    expect(view.countdown).toEqual({ bars: 2, finalBeats: null })
+    expect(view.countdown).toEqual({ bars: 2, finalBeats: null, beats: 8, beatsPerBar: 4 })
     expect(view.progress).toBe(0.75)
   })
 
@@ -267,7 +280,7 @@ describe('looping', () => {
     const view = computeCueView(cues, inLoop(60, { start: 16, end: 64 }), { mode: 'auto' })
     expect(view.current?.label).toBe('Chorus')
     expect(view.next?.label).toBe('Verse 1')
-    expect(view.countdown).toEqual({ bars: 1, finalBeats: 4 })
+    expect(view.countdown).toEqual({ bars: 1, finalBeats: 4, beats: 4, beatsPerBar: 4 })
   })
 
   it('shows no next section for a vamp looping inside one section', () => {
