@@ -63,7 +63,8 @@ export function Band({ view, settings }: BandProps) {
         background: mix(settings.background, settings.backgroundOpacity * 100),
         color: settings.text,
         paddingTop: space(1.6),
-        paddingBottom: space(settings.showProgress ? 2.2 : 1.6),
+        // Room for the progress bar under the text, however thick it is.
+        paddingBottom: space(settings.showProgress ? 1.3 + 0.9 * settings.progressSize : 1.6),
         paddingInline: space(3.6),
       }}
     >
@@ -149,7 +150,7 @@ export function Band({ view, settings }: BandProps) {
       {settings.showProgress && progress !== null ? (
         <div
           className="absolute inset-x-0 bottom-0 overflow-hidden"
-          style={{ height: space(0.9), background: mix(settings.text, 14) }}
+          style={{ height: space(0.9 * settings.progressSize), background: mix(settings.text, 14) }}
           role="progressbar"
           aria-label="Progress through this section"
           aria-valuemin={0}

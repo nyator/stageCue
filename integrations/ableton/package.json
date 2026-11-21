@@ -1,7 +1,7 @@
 {
   "name": "@stagecue/ableton",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Ableton Live integration for StageCue.",
   "type": "module",
   "exports": {

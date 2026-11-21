@@ -146,6 +146,15 @@ export const displaySettingsSchema = z.object({
   countBars: z.int().min(1).max(4).default(2),
   showCountdown: z.boolean().default(true),
   showProgress: z.boolean().default(true),
+  /**
+   * Thickness of the progress bar, as a multiple of the original thin bar.
+   * At least 1.5, default 3, since 21 November 2026: the thin bar was hard to
+   * see from the choir. Older saved values below 1.5 are raised to 1.5.
+   */
+  progressSize: z
+    .number()
+    .transform((value) => Math.min(6, Math.max(1.5, value)))
+    .default(3),
   /** The NDI picture size. Match ProPresenter's output; 4K costs about four times the work. */
   outputSize: z.enum(OUTPUT_SIZES).default('1080p'),
   /**

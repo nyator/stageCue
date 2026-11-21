@@ -19,7 +19,7 @@ const NEXT_LEAD_OPTIONS = [
   { value: '4', label: '4 bars' },
   { value: '8', label: '8 bars' },
   { value: '16', label: '16 bars' },
-  { value: '0', label: 'Whole section' },
+  { value: '0', label: 'Always' },
 ] as const
 
 /** Bars before a change that the beats are counted out. */
@@ -121,7 +121,7 @@ export function DisplaySettingsPanel({ value, onChange }: DisplaySettingsPanelPr
             onChange={(v) => set('showNext', v)}
           />
           {value.showNext ? (
-            <div className="-mt-1 flex flex-col gap-2 pl-0.5">
+            <div className="-mt-1 flex flex-col gap-2">
               <span id={ids.nextLead} className="text-xs text-muted">
                 Show it before the change
               </span>
@@ -141,7 +141,7 @@ export function DisplaySettingsPanel({ value, onChange }: DisplaySettingsPanelPr
             onChange={(v) => set('showCountdown', v)}
           />
           {value.showCountdown ? (
-            <div className="-mt-1 flex flex-col gap-2 pl-0.5">
+            <div className="-mt-1 flex flex-col gap-2">
               <span id={ids.count} className="text-xs text-muted">
                 Count 4, 3, 2, 1 across the
               </span>
@@ -160,6 +160,17 @@ export function DisplaySettingsPanel({ value, onChange }: DisplaySettingsPanelPr
             checked={value.showProgress}
             onChange={(v) => set('showProgress', v)}
           />
+          {value.showProgress ? (
+            <RangeRow
+              label="Thickness"
+              min={1.5}
+              max={6}
+              step={0.25}
+              value={value.progressSize}
+              format={(v) => `${Math.round(v * 100)}%`}
+              onChange={(v) => set('progressSize', v)}
+            />
+          ) : null}
         </div>
       </div>
       <div role="group" aria-labelledby={ids.output} className="flex flex-col gap-5 pt-5">

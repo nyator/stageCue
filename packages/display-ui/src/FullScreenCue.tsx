@@ -144,7 +144,7 @@ export function FullScreenCue({ view, settings, status = null }: FullScreenCuePr
       {settings.showProgress && progress !== null && lead ? (
         <div
           className="absolute inset-x-0 bottom-0 overflow-hidden"
-          style={{ height: min(1.8), background: mix(settings.text, 14) }}
+          style={{ height: min(1.8 * settings.progressSize), background: mix(settings.text, 14) }}
           role="progressbar"
           aria-label="Progress through this section"
           aria-valuemin={0}
