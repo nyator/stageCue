@@ -46,7 +46,7 @@ export function LivePage() {
     : !connected
       ? ['Waiting for Ableton. Connect it in Setup.', 'off']
       : transport?.playing
-        ? ['Following Ableton.', 'ok']
+        ? ['Following Ableton', 'ok']
         : ['Ableton is stopped. The screen holds the section at the playhead.', 'ok']
 
   return (
@@ -139,9 +139,7 @@ export function LivePage() {
 function Readout({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div className="flex flex-col gap-1">
-      <span className="text-[11px] font-semibold tracking-[0.14em] text-faint uppercase">
-        {label}
-      </span>
+      <span className="text-xs font-medium text-muted">{label}</span>
       <span className="font-mono text-lg leading-none text-ink tabular-nums">{children}</span>
     </div>
   )
@@ -260,11 +258,11 @@ function RunningOrder({
                 <span className="block truncate text-[13px] text-muted">{cue.detail}</span>
               ) : null}
             </span>
-            <span className="relative text-[11px] font-semibold tracking-[0.1em] uppercase">
+            <span className="relative text-xs font-medium">
               {isCurrent ? <span className="text-cue">Now</span> : null}
               {isNext ? (
                 <span className="text-muted">
-                  Next <span className="font-mono tracking-normal normal-case">· {away}</span>
+                  Next <span className="font-mono">· {away}</span>
                 </span>
               ) : null}
             </span>

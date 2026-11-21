@@ -82,7 +82,7 @@ describe('describeSignalPath', () => {
       status: 'Not connected',
       detail: 'Waiting for the device',
     })
-    expect(path.verdict).toEqual({ tone: 'warn', text: 'Waiting for Ableton.' })
+    expect(path.verdict).toEqual({ tone: 'warn', text: 'Waiting for Ableton' })
     expect(path.needsAttention).toBe('ableton')
   })
 
@@ -101,7 +101,7 @@ describe('describeSignalPath', () => {
       lamp: 'off',
       detail: 'Only this screen is connected',
     })
-    expect(path.verdict.text).toBe('Ableton is connected, but nothing is showing the cue yet.')
+    expect(path.verdict.text).toBe('Ableton is connected, but nothing is showing the cue yet')
   })
 
   it('shows NDI as ready without a receiver', () => {

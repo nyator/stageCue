@@ -79,7 +79,7 @@ export function SignalPath({
 
   return (
     <div>
-      <div className="mb-2 grid grid-cols-[minmax(0,1fr)_3rem_minmax(0,1fr)_3.5rem_minmax(0,1.2fr)] text-[11px] font-semibold tracking-[0.14em] text-faint uppercase">
+      <div className="mb-2 grid grid-cols-[minmax(0,1fr)_3rem_minmax(0,1fr)_3.5rem_minmax(0,1.2fr)] text-xs font-medium text-muted">
         <span>Source</span>
         <span />
         <span>StageCue</span>

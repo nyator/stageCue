@@ -147,16 +147,16 @@ export function describeSignalPath(input: SignalInput): SignalPath {
   let verdict: Verdict
   let needsAttention: NodeId | null = null
   if (input.engine.phase === 'offline') {
-    verdict = { tone: 'bad', text: 'StageCue’s engine is not running.' }
+    verdict = { tone: 'bad', text: 'StageCue’s engine is not running' }
     needsAttention = 'engine'
   } else if (input.engine.phase === 'connecting') {
     verdict = { tone: 'warn', text: 'Connecting to StageCue’s engine…' }
     needsAttention = 'engine'
   } else if (!daw?.connected) {
-    verdict = { tone: 'warn', text: 'Waiting for Ableton.' }
+    verdict = { tone: 'warn', text: 'Waiting for Ableton' }
     needsAttention = 'ableton'
   } else if (liveOutputs === 0) {
-    verdict = { tone: 'warn', text: 'Ableton is connected, but nothing is showing the cue yet.' }
+    verdict = { tone: 'warn', text: 'Ableton is connected, but nothing is showing the cue yet' }
   } else {
     verdict = {
       tone: 'ok',

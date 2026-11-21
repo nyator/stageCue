@@ -62,9 +62,7 @@ function Steps({ children }: { children: ReactNode[] }) {
 function Facts({ title, children }: { title: string; children: ReactNode }) {
   return (
     <div>
-      <h3 className="mb-2 text-[11px] font-semibold tracking-[0.14em] text-faint uppercase">
-        {title}
-      </h3>
+      <h3 className="mb-2 text-xs font-medium text-muted">{title}</h3>
       {children}
     </div>
   )
@@ -230,7 +228,7 @@ export function AbletonPanel({
       }
       aside={
         <>
-          <Facts title="Type this into the device">
+          <Facts title="If the device does not find StageCue">
             {state.phase !== 'connected' ? (
               <p className="text-sm text-faint">Shown once the engine is running.</p>
             ) : list.length === 0 || loopback ? (
@@ -253,7 +251,7 @@ export function AbletonPanel({
       <Steps>
         {[
           <InstallDevice key="install" />,
-          'Type the address on the right into the device and press Return. The device remembers it.',
+          'Leave the device’s address field empty: it finds StageCue on the network by itself, and its light turns green. Only on a network that blocks this, type the address on the right and press Return.',
           <>
             Add a locator where each section starts, named like{' '}
             <span className="text-ink">Chorus</span> or{' '}

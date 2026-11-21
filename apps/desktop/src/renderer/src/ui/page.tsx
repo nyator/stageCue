@@ -56,7 +56,7 @@ export function SectionHeading({
   )
 }
 
-/** A small uppercase label over a group of facts or controls. */
+/** A small label over a group of facts or controls, in sentence case. */
 export function GroupLabel({
   children,
   as: Tag = 'h3',
@@ -64,9 +64,5 @@ export function GroupLabel({
   children: ReactNode
   as?: 'h3' | 'legend' | 'span'
 }) {
-  return (
-    <Tag className="mb-2.5 block text-[11px] font-semibold tracking-[0.14em] text-faint uppercase">
-      {children}
-    </Tag>
-  )
+  return <Tag className="mb-2.5 block text-xs font-medium text-muted">{children}</Tag>
 }

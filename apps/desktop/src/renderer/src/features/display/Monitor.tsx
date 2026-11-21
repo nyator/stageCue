@@ -82,7 +82,7 @@ export function Monitor({
       <div className="relative rounded-xl bg-[oklch(0.13_0.008_165)] p-2 ring-1 ring-line-soft">
         {children}
         <span
-          className={`absolute top-4 left-4 flex items-center gap-1.5 rounded-[5px] px-2 py-1 text-[11px] leading-none font-semibold tracking-[0.12em] uppercase transition-colors duration-200 ${TALLY[tally]}`}
+          className={`absolute top-4 left-4 flex items-center gap-1.5 rounded-[5px] px-2 py-1 text-xs leading-none font-medium transition-colors duration-200 ${TALLY[tally]}`}
         >
           {tally === 'on' ? (
             <span className="size-1.5 rounded-full bg-cue-ink" aria-hidden />
