@@ -272,10 +272,36 @@ Ableton 12 with the device on a MacBook, the engine and app on a Windows PC, ove
 
 Also found on the test PC, outside StageCue: MariaDB allowed through the firewall on Public networks.
 
+### 11.2 Lag over Wi-Fi (21 November 2026)
+
+`pnpm netlab` plays poor Wi-Fi on both hops (device → engine, engine → screen) through a relay that delays, jitters and stalls the bytes in order, as TCP does, and compares what the band would show, every frame, with the true playhead. The screen is the real engine client with the band's own estimate and smoothing; the pretend device's clock is set 3.7 s off, as two computers' clocks are.
+
+Worst error per scenario (500 ms is one beat at 120 BPM):
+
+| Scenario                              | Before                          | After |
+| ------------------------------------- | ------------------------------- | ----- |
+| Same computer                         | 4 ms                            | 4 ms  |
+| Good Wi-Fi (4 ms + 12 ms jitter)      | 32 ms                           | 3 ms  |
+| Busy Wi-Fi (20 ms + 80 ms jitter)     | 178 ms, typically 110 ms behind | 11 ms |
+| Power saving (150 ms holds every 1 s) | 33 ms                           | 7 ms  |
+| Lost packets (400 ms holds every 3 s) | 28 ms                           | 7 ms  |
+| Wi-Fi freezes 1.5 s                   | 945 ms, steps back              | 6 ms  |
+| TV on busy Wi-Fi                      | 1005 ms, steps back             | 3 ms  |
+| Device's Wi-Fi drops 3 s              | 3050 ms, band frozen 3 s        | 15 ms |
+| TV's Wi-Fi drops 3 s                  | not measured                    | 8 ms  |
+
+What caused the lag, and the fixes:
+
+1. **Late reports were treated as fresh.** The engine and displays dated a report by when it arrived, so time spent waiting on the network became lag, and a burst after a stall dragged the playhead back. Now each receiver dates it by `sentAt` through `ArrivalClock` (protocol.md, "Late messages").
+2. **A dropped connection froze the band at once,** while the music played on. The engine and displays now keep counting for `COAST_MS` (8 s) and stop only if nothing is back by then. The device now retries at most every 2 s (was 5 s), so it is back well within that.
+
+Not covered by the lab: the time between Max's `[js]` reading the playhead and the bridge stamping `sentAt` (Max's low-priority queue, a few ms); and a real Wi-Fi network. Repeat 11.1's two-computer test with deliberate drops to confirm.
+
 ## 12. Testing
 
 - `pnpm test`: cue logic (countdown, progress, 6/8, tempo following, blank markers, manual mode), protocol parsing, engine server (handshake, roles, heartbeat, stale messages, broadcasts), live session, migrations, settings defaults.
 - `pnpm simulate`: end-to-end without Ableton.
+- `pnpm netlab`: lag under poor Wi-Fi, per scenario (section 11.2). `--only "Busy Wi-Fi"` runs one.
 - `STAGECUE_OUTPUT_SNAPSHOT`: verifies the output frame and its alpha without NDI.
 - Manual: section 7.2 in Ableton, section 6.2 step 5 in ProPresenter.
 

@@ -34,7 +34,7 @@ const ANNOUNCE_FORGET_MS = 3_500
 /** After first hearing any StageCue, wait this long for the one used last time before choosing. */
 const CHOOSE_WAIT_MS = 1_500
 const RETRY_MIN_MS = 1_000
-const RETRY_MAX_MS = 5_000
+const RETRY_MAX_MS = 2_000 // short: after a Wi-Fi drop, be back while the band is still coasting
 /** A connection attempt that has not opened by now is given up and retried. */
 const CONNECT_TIMEOUT_MS = 4_000
 const WATCHDOG_MS = 2_000

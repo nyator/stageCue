@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http'
 import type { AddressInfo } from 'node:net'
+import { ArrivalClock } from '@stagecue/arrangement'
 import {
   CloseCode,
   MAX_MESSAGE_BYTES,
@@ -48,6 +49,8 @@ export interface EngineServerOptions {
     connectionId: string,
     client: ConnectedClient,
     payload: ClientMessagePayload<'daw.transport'>,
+    /** How long the report was held up on the way, by its sentAt (ArrivalClock). */
+    latenessMs: number,
   ) => void
   /** Called when an identified connection closes. */
   onClientLeft?: (connectionId: string, client: ConnectedClient) => void
@@ -74,6 +77,10 @@ interface Connection {
   lastClientSeq: number
   client: ConnectedClient | null
   handshakeTimer: NodeJS.Timeout | null
+  /** How late this peer's messages arrive, from their sentAt. */
+  arrival: ArrivalClock
+  /** Lateness of the message being handled. */
+  latenessMs: number
 }
 
 const CLOSE_GRACE_MS = 1_000
@@ -252,7 +259,7 @@ export async function startEngineServer(options: EngineServerOptions): Promise<E
       if (message.type === 'daw.markers') {
         options.onDawMarkers?.(connection.id, client, message.payload)
       } else {
-        options.onDawTransport?.(connection.id, client, message.payload)
+        options.onDawTransport?.(connection.id, client, message.payload, connection.latenessMs)
       }
     } catch (error) {
       logger.error('DAW message handler failed', { connectionId: connection.id, error })
@@ -308,6 +315,8 @@ export async function startEngineServer(options: EngineServerOptions): Promise<E
     }
 
     const message = result.message
+    // Every message teaches the clock what "on time" is, so measure them all.
+    connection.latenessMs = connection.arrival.lateness(message.sentAt, Date.now())
     if (message.seq <= connection.lastClientSeq) {
       sendError(
         connection,
@@ -342,6 +351,8 @@ export async function startEngineServer(options: EngineServerOptions): Promise<E
       lastClientSeq: -1,
       client: null,
       handshakeTimer: null,
+      arrival: new ArrivalClock(),
+      latenessMs: 0,
     }
     connections.add(connection)
     logger.debug('Connection opened', { connectionId: connection.id, address: connection.address })

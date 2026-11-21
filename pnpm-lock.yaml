@@ -180,6 +180,15 @@ importers:
 
   integrations/logic: {}
 
+  integrations/netlab:
+    dependencies:
+      '@stagecue/arrangement':
+        specifier: workspace:*
+        version: link:../../packages/arrangement
+      '@stagecue/engine-client':
+        specifier: workspace:*
+        version: link:../../packages/engine-client
+
   integrations/propresenter: {}
 
   integrations/simulator:

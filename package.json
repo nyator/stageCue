@@ -16,6 +16,7 @@
     "dev:screen": "pnpm --filter @stagecue/screen dev",
     "start:engine": "pnpm --filter @stagecue/engine start",
     "simulate": "pnpm --filter @stagecue/simulator start --",
+    "netlab": "pnpm --filter @stagecue/netlab start --",
     "build": "pnpm --filter @stagecue/screen build && pnpm --filter @stagecue/engine build && pnpm --filter @stagecue/desktop build",
     "test": "vitest run",
     "test:watch": "vitest",

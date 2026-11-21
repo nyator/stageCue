@@ -155,7 +155,7 @@ Send on play, stop, seek, tempo or time signature change, and ten to twenty time
 | `timeSignature` | `{ numerator: 1–32, denominator: 1, 2, 4, 8, 16, or 32 }`            |
 | `loop`          | `{ start, end }` while Ableton's loop is on; null or absent when off |
 
-Inside an active loop (the playhead before `end`), the engine and displays wrap the estimated playhead back to `start` at `end`, and show the section the loop returns to as next. The engine does not need a steady stream to stay accurate: between reports, it and every display move the playhead forward with the tempo. When the bridge disconnects, the engine stops the clock at the estimated position.
+Inside an active loop (the playhead before `end`), the engine and displays wrap the estimated playhead back to `start` at `end`, and show the section the loop returns to as next. The engine does not need a steady stream to stay accurate: between reports, it and every display move the playhead forward with the tempo. When the followed bridge disconnects while playing, the engine keeps counting for 8 s (`COAST_MS`), because a Wi-Fi drop is usually over before the device reconnects; if no bridge is back by then, it stops the clock at the estimated position. Displays that lose the engine do the same.
 
 The engine follows **one bridge at a time**. While the followed bridge is connected and has sent something in the last 2 seconds, `daw.markers` and `daw.transport` from any other bridge are ignored (no error is returned; the engine logs a warning once per connection). Another bridge takes over when the followed one disconnects or goes silent for 2 seconds.
 
@@ -171,7 +171,9 @@ Sent right after `welcome`, then on every change.
 | `mode`      | `{ mode: "auto" }` or `{ mode: "manual", index }`                |
 | `hidden`    | boolean; true while the media team has hidden the band           |
 
-Displays compute the cue themselves (`computeCueView` in `packages/arrangement`), moving `beat` forward from the moment they received the message.
+Displays compute the cue themselves (`computeCueView` in `packages/arrangement`), moving `beat` forward from the moment the message was sent.
+
+**Late messages.** Every envelope's `sentAt` is the sender's clock. Receivers (the engine for `daw.transport`, displays for `live.state`) date a message by when it was sent, not when it arrived: `ArrivalClock` (`packages/arrangement/src/arrival.ts`) takes the smallest `receivedAt - sentAt` of the last 20 s as "on time", so the two computers' clocks need not agree, and anything above it is how long the message waited on the network (capped at 3 s). A clock that is set back is noticed after 3 s of uniformly late messages.
 
 ## Finding StageCue
 

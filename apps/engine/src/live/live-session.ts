@@ -1,5 +1,6 @@
 import {
   beatAt,
+  COAST_MS,
   computeCueView,
   toCues,
   type CueMode,
@@ -21,6 +22,15 @@ interface BridgeRecord {
 /** Whether a DAW message was used, or ignored because another bridge is followed. */
 export type BridgeResult = { accepted: true } | { accepted: false; following: string }
 
+/** Runs `run` after `ms`; returns a function that cancels it. */
+export type Schedule = (run: () => void, ms: number) => () => void
+
+const realSchedule: Schedule = (run, ms) => {
+  const timer = setTimeout(run, ms)
+  timer.unref?.()
+  return () => clearTimeout(timer)
+}
+
 /**
  * What is happening right now: the DAW's markers and playhead, and whether the
  * director has taken over. StageCue never controls the DAW; it only listens.
@@ -36,9 +46,13 @@ export class LiveSession {
   #transport: { value: Transport; receivedAt: number } | null = null
   #mode: CueMode = { mode: 'auto' }
   #hidden = false
+  readonly #schedule: Schedule
+  /** Cancels the pending stop while coasting after the followed bridge dropped. */
+  #cancelCoast: (() => void) | null = null
 
-  constructor(now: () => number = Date.now) {
+  constructor(now: () => number = Date.now, schedule: Schedule = realSchedule) {
     this.#now = now
+    this.#schedule = schedule
   }
 
   /** Called after any change, so the server can broadcast the new state. */
@@ -63,7 +77,12 @@ export class LiveSession {
     if (!this.#bridges.has(connectionId)) {
       this.#bridges.set(connectionId, { name, project: null, markers: null, transport: null })
     }
-    this.#followed ??= connectionId
+    if (this.#followed === null) {
+      this.#followed = connectionId
+      // A bridge is back while the band was coasting: it takes over from here.
+      this.#cancelCoast?.()
+      this.#cancelCoast = null
+    }
     if (this.#followed === connectionId) return { accepted: true }
     return {
       accepted: false,
@@ -88,9 +107,19 @@ export class LiveSession {
     return result
   }
 
-  setTransport(connectionId: string, name: string, transport: Transport): BridgeResult {
+  /**
+   * `latenessMs` is how long the report was held up on the way (Wi-Fi stalls),
+   * from its sentAt. The report describes the playhead when it was sent, so it
+   * is dated then: a late report does not drag the playhead into the past.
+   */
+  setTransport(
+    connectionId: string,
+    name: string,
+    transport: Transport,
+    latenessMs = 0,
+  ): BridgeResult {
     const result = this.#record(connectionId, name)
-    const received = { value: transport, receivedAt: this.#now() }
+    const received = { value: transport, receivedAt: this.#now() - latenessMs }
     this.#bridges.get(connectionId)!.transport = received
     if (!result.accepted) return result
     this.#transport = received
@@ -101,8 +130,9 @@ export class LiveSession {
   /**
    * A bridge went away (DAW closed, network dropped). If it was the one followed
    * and another is still connected, follow that one, with its own last markers
-   * and position. Otherwise keep the markers and the last position so the
-   * display holds steady, but stop the clock.
+   * and position. Otherwise keep the markers and, if the DAW was playing, keep
+   * counting for COAST_MS: a Wi-Fi drop is usually over before then and the
+   * device reconnects. If no bridge is back by then, stop the clock where it is.
    */
   bridgeDisconnected(connectionId: string): void {
     if (!this.#bridges.delete(connectionId) || this.#followed !== connectionId) return
@@ -117,14 +147,28 @@ export class LiveSession {
       if (next.transport) this.#transport = next.transport
     } else {
       this.#followed = null
-      if (this.#transport) {
-        this.#transport = {
-          value: { ...this.#transport.value, beat: this.#currentBeat()!, playing: false },
-          receivedAt: this.#now(),
-        }
+      if (this.#transport?.value.playing) {
+        this.#cancelCoast?.()
+        this.#cancelCoast = this.#schedule(() => {
+          this.#cancelCoast = null
+          if (this.#followed !== null) return
+          this.#stopClock()
+          this.#changed()
+        }, COAST_MS)
+      } else {
+        this.#stopClock()
       }
     }
     this.#changed()
+  }
+
+  /** Holds the playhead where it is now. */
+  #stopClock(): void {
+    if (!this.#transport) return
+    this.#transport = {
+      value: { ...this.#transport.value, beat: this.#currentBeat()!, playing: false },
+      receivedAt: this.#now(),
+    }
   }
 
   #currentBeat(): number | null {

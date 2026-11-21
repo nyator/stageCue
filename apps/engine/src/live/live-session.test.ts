@@ -1,3 +1,4 @@
+import { COAST_MS } from '@stagecue/arrangement'
 import { describe, expect, it } from 'vitest'
 import { LiveSession } from './live-session.ts'
 
@@ -10,11 +11,25 @@ const markers = [
 
 function session() {
   let now = 1_000
-  const live = new LiveSession(() => now)
+  // Timers run when the test moves the clock past them.
+  let timers: { at: number; run: () => void }[] = []
+  const live = new LiveSession(
+    () => now,
+    (run, ms) => {
+      const timer = { at: now + ms, run }
+      timers.push(timer)
+      return () => {
+        timers = timers.filter((t) => t !== timer)
+      }
+    },
+  )
   return {
     live,
     advance: (ms: number) => {
       now += ms
+      const due = timers.filter((t) => t.at <= now)
+      timers = timers.filter((t) => t.at > now)
+      for (const timer of due) timer.run()
     },
   }
 }
@@ -57,7 +72,7 @@ describe('LiveSession', () => {
     expect(live.snapshot().daw).toMatchObject({ connected: true, name: 'Ableton' })
   })
 
-  it('freezes at the last estimated position when the bridge disconnects', () => {
+  it('keeps counting for a moment when the bridge drops, then stops at the estimated position', () => {
     const { live, advance } = session()
     live.setMarkers('c1', 'Ableton', 'Sunday set', markers)
     live.setTransport('c1', 'Ableton', {
@@ -68,12 +83,40 @@ describe('LiveSession', () => {
     })
     advance(2_000)
     live.bridgeDisconnected('c1')
-    advance(5_000)
 
+    // A Wi-Fi drop: the music plays on, so does the band.
+    advance(3_000)
+    expect(live.snapshot().daw.connected).toBe(false)
+    expect(live.snapshot().transport).toMatchObject({ playing: true, beat: 15 })
+
+    // Nobody came back: stop where the playhead would be.
+    advance(COAST_MS - 3_000)
     const state = live.snapshot()
-    expect(state.daw.connected).toBe(false)
-    expect(state.transport).toMatchObject({ playing: false, beat: 12 })
+    expect(state.transport).toMatchObject({ playing: false, beat: 12 + COAST_MS / 1_000 })
     expect(state.markers).toHaveLength(3)
+  })
+
+  it('carries on without a stop when the device reconnects while coasting', () => {
+    const { live, advance } = session()
+    const play = (beat: number) => ({ playing: true, beat, tempo: 60, timeSignature: fourFour })
+    live.setTransport('c1', 'Ableton', play(10))
+    live.bridgeDisconnected('c1')
+    advance(3_000)
+    live.setTransport('c2', 'Ableton', play(13))
+    advance(COAST_MS)
+    expect(live.snapshot().transport).toMatchObject({ playing: true, beat: 13 + COAST_MS / 1_000 })
+  })
+
+  it('dates a late report by when it was sent', () => {
+    const { live } = session()
+    live.setTransport(
+      'c1',
+      'Ableton',
+      { playing: true, beat: 10, tempo: 60, timeSignature: fourFour },
+      1_500,
+    )
+    // Sent 1.5 s ago at beat 10: the playhead is at 11.5 now.
+    expect(live.snapshot().transport?.beat).toBe(11.5)
   })
 
   it('follows one bridge and ignores a second one that is also sending', () => {

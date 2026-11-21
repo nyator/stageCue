@@ -1,4 +1,4 @@
-import { beatAt } from '@stagecue/arrangement'
+import { ArrivalClock, beatAt, COAST_MS } from '@stagecue/arrangement'
 import {
   methods,
   parseServerMessage,
@@ -76,6 +76,10 @@ export class EngineConnection {
   #failedAttempts = 0
   #outgoingSeq = 0
   #lastServerSeq = -1
+  /** How late the engine's messages arrive (Wi-Fi), from their sentAt. New for each socket. */
+  #arrival = new ArrivalClock()
+  /** Pending stop of the clock after losing the engine; see #coastThenFreeze. */
+  #coastTimer: ReturnType<typeof setTimeout> | null = null
   #running = false
 
   constructor(url: string, identity: ClientIdentity) {
@@ -145,10 +149,27 @@ export class EngineConnection {
   }
 
   /**
-   * Losing the engine must not leave a countdown running on its own. Keep the
-   * section on screen but stop the clock where it was.
+   * A dropped connection is usually a Wi-Fi blip, and the music plays on: keep
+   * counting for COAST_MS while reconnecting, then stop if the engine is still
+   * not back. Fresh state from the engine cancels the stop.
+   */
+  #coastThenFreeze(): void {
+    if (this.#coastTimer) clearTimeout(this.#coastTimer)
+    this.#coastTimer = setTimeout(() => {
+      this.#coastTimer = null
+      this.#freezeLive()
+    }, COAST_MS)
+  }
+
+  /**
+   * Losing the engine for good must not leave a countdown running on its own.
+   * Keep the section on screen but stop the clock where it was.
    */
   #freezeLive(): void {
+    if (this.#coastTimer) {
+      clearTimeout(this.#coastTimer)
+      this.#coastTimer = null
+    }
     const live = this.#live
     if (!live?.state.transport?.playing) return
     const now = performance.now()
@@ -191,6 +212,7 @@ export class EngineConnection {
   }
 
   #open(): void {
+    this.#arrival = new ArrivalClock()
     if (this.#state.phase !== 'offline') {
       this.#setState({ phase: 'connecting' })
     }
@@ -223,7 +245,7 @@ export class EngineConnection {
       }
       this.#socket = null
       this.#failPending('offline', 'The connection to the engine was lost.')
-      this.#freezeLive()
+      this.#coastThenFreeze()
       this.#scheduleReconnect()
     })
   }
@@ -252,6 +274,7 @@ export class EngineConnection {
     }
 
     const message = result.message
+    const latenessMs = this.#arrival.lateness(message.sentAt, Date.now())
 
     // A welcome starts a new engine session, which may have restarted its counter.
     if (message.type !== 'welcome' && message.seq <= this.#lastServerSeq) {
@@ -272,7 +295,13 @@ export class EngineConnection {
         this.#handleResponse(message.payload)
         break
       case 'live.state':
-        this.#setLive({ state: message.payload, receivedAt: performance.now() })
+        // The engine moved the playhead to when it sent this; date it then, so a
+        // message held up on Wi-Fi does not put the screen behind or step it back.
+        if (this.#coastTimer) {
+          clearTimeout(this.#coastTimer)
+          this.#coastTimer = null
+        }
+        this.#setLive({ state: message.payload, receivedAt: performance.now() - latenessMs })
         break
       case 'data.changed':
         for (const listener of this.#dataListeners) {

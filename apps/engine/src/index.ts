@@ -64,8 +64,8 @@ async function main(): Promise<void> {
         const result = live.setMarkers(connectionId, client.name, project, markers)
         if (!result.accepted) warnIgnored(connectionId, client.name, result.following)
       },
-      onDawTransport: (connectionId, client, transport) => {
-        const result = live.setTransport(connectionId, client.name, transport)
+      onDawTransport: (connectionId, client, transport, latenessMs) => {
+        const result = live.setTransport(connectionId, client.name, transport, latenessMs)
         if (!result.accepted) warnIgnored(connectionId, client.name, result.following)
       },
       onClientLeft: (connectionId, client) => {

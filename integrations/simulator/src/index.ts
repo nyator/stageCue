@@ -18,6 +18,8 @@ import { SAMPLE_SET } from './song.ts'
  */
 
 const { values } = parseArgs({
+  // pnpm can pass a literal "--" through to the script.
+  args: process.argv.slice(2).filter((arg) => arg !== '--'),
   options: {
     url: { type: 'string', default: `ws://127.0.0.1:${DEFAULT_ENGINE_PORT}` },
     tempo: { type: 'string', default: '96' },
