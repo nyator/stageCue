@@ -25,7 +25,8 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "check": "pnpm typecheck && pnpm lint && pnpm test && pnpm format:check",
-    "package:mac": "pnpm build && pnpm --filter @stagecue/desktop package:mac"
+    "package:mac": "pnpm build && pnpm --filter @stagecue/desktop package:mac",
+    "package:win": "pnpm build && pnpm --filter @stagecue/desktop package:win"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.0",

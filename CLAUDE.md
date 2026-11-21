@@ -15,47 +15,64 @@ A messenger between Ableton Live and ProPresenter 7 for church choirs. The music
 - **Never add `Co-Authored-By` trailers or “Generated with Claude Code” lines (or any AI attribution) to commits or PR descriptions.**
 - Commit or push only when asked. `master` is the current design and includes the TV output and the app redesign (`screen-output` was merged into it on 11 November 2026). Start new work on a branch. Work on both computers: pull before starting, push when done, so `master` does not split again (it did once: the Mac and the PC each committed NDI work on the same parent).
 
-## Status (11 November 2026)
+## Start here: when the owner says "check it"
 
-| Part                                                                                               | State                                                                                                                                                                                                                         |
-| -------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Engine, protocol, cue logic (countdown, progress, pulse, tempo following, loops)                   | Done, 81 tests                                                                                                                                                                                                                |
-| StageCue app: Live (preview, Hide/Show band, running order), Style, Setup                          | Done and redesigned (apps/desktop/DESIGN.md); checked with the simulator at 1280×820 and 1024×640                                                                                                                             |
-| Max for Live device (`integrations/ableton/device`)                                                | Built; working in Live 12 Suite; status panel and reconnect watchdog; Setup installs it into Live's User Library. The full test plan (technical-design.md §7.2) is not recorded as done                                       |
-| Output page: off-screen, transparent, 1920×1080                                                    | Done, verified by snapshot (alpha checked pixel by pixel)                                                                                                                                                                     |
-| NDI sending (`apps/desktop/src/main/output/ndi.ts`)                                                | Working on macOS (1080p at 60 fps, 4K at 30) and Windows (1080p at 30), straight alpha, checked with an independent NDI receiver on each (technical-design.md §6.3). Not yet seen in ProPresenter; 4K not measured on Windows |
-| TV or screen without ProPresenter (`apps/screen`, engine HTTP, `apps/desktop/src/main/screens.ts`) | Built (on `master`); tested in headless Edge (landscape and portrait). Not yet on a real TV, attached second screen, or AirPlay (technical-design.md §6b)                                                                     |
-| ProPresenter end-to-end                                                                            | Not tested                                                                                                                                                                                                                    |
-| Two computers over Wi-Fi                                                                           | Tested 11 November 2026 (Mac with Ableton, Windows PC with StageCue, iPhone hotspot): steady link, Wi-Fi drop recovers on its own, TV page in Safari works; security probe results in technical-design.md §11.1               |
-| Installers, engine started by the app, pairing                                                     | Not started                                                                                                                                                                                                                   |
-| Logic Pro                                                                                          | Open question (no known way to read marker names)                                                                                                                                                                             |
+The owner works on two computers and picks up wherever they are. When asked to check the project:
 
-## Handoff: Windows PC to MacBook (11 November 2026, evening)
+1. **Sync and verify:** `git status`, `git pull`, `pnpm install`, `pnpm check`. Report in plain words whether this computer is up to date with GitHub and whether everything passes. Never leave uncommitted work from the other computer behind: if `git status` shows changes you did not make, ask before touching them.
+2. **Say where things stand** from the Status table below, in a few lines.
+3. **Do the first item in "Next steps" that this computer can do**, then update this file (Status, Next steps) so the next session starts from the truth. Ask before anything outward-facing (pushing, publishing a release, the website).
 
-Work continues on the MacBook, which has Ableton Live 12 Suite, Max 9 and ProPresenter 7. Start with `git pull` and `pnpm install`.
+Which computer can do what:
 
-**Decided tonight by the owner:**
+| MacBook                                                                                        | Windows PC                                                                      |
+| ---------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| Ableton Live 12 Suite, Max 9, ProPresenter 7, Logic. Device work, ProPresenter tests, Mac app  | Windows app (`pnpm package:win`), the device's `.exe` installer, NDI on Windows |
+| Ableton device installers (`build:installers` makes both `.pkg` and `.exe`; NSIS via Homebrew) | Second computer for real Wi-Fi tests with the Mac                               |
 
-- **The media team installs an app; they never run code.** No terminal, no `pnpm dev`, no Node, no Xcode on a church computer. StageCue must ship as a normal Mac app (a `.dmg` with StageCue.app) that starts its own engine.
-- **The Ableton device must be one file, set up once.** Today it is four files that must stay together (`StageCue.amxd`, `stagecue-lom.js`, `stagecue-bridge.js`, `package.json`), and the address has to be typed in. Wanted: a single `StageCue.amxd`, dropped on the master track once (and saved in Live's default set), that finds StageCue on the network by itself.
-- **Where to run what:** StageCue on the same computer as ProPresenter; Ableton on the stage computer with only the device (README, "Setting up at church").
-- **The band (singers' feedback):** most of the time only the current section; NEXT only near the end of a section (8 bars by default, chosen in Style; 4 was too late); no arrow (apps/desktop/DESIGN.md, "The band").
+## Status (21 November 2026, version 0.1.4)
 
-**Proven tonight** (Mac with Ableton, Windows PC with StageCue, iPhone hotspot): steady link, Wi-Fi drop recovery, TV page in Safari, band to the Mac over NDI. Three bugs found and fixed (screen takeover by a second bridge, blank TV page on plain http, screen-window navigation). Details: technical-design.md §11.1.
+| Part                              | State                                                                                                                                                                                                                                                                        |
+| --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Engine, protocol, cue logic       | Done, 164 tests (`pnpm check`)                                                                                                                                                                                                                                               |
+| The band                          | Current section always; NEXT from 8 bars before a change (Style: 4, 8, 16, Always); 4, 3, 2, 1 across the last 2 bars, a number every 2 beats (Style: Last bar or Last 2 bars); progress bar 300% thick by default (Style: 150% to 600%). apps/desktop/DESIGN.md, "The band" |
+| StageCue app (Live, Style, Setup) | Done; polished 21 November (sentence-case labels). Setup shows an update banner when a newer release is out (technical-design.md §10.1)                                                                                                                                      |
+| Mac app                           | `.dmg`, Apple silicon only, starts its own engine, NDI and TV page built in. Unsigned: first launch needs System Settings › Privacy & Security › Open Anyway                                                                                                                 |
+| Windows app                       | `StageCue-Setup-0.1.0.exe` was built on the PC and works (owner, 20 November); it is a draft release on the website, older than the timing changes. **0.1.4 not built for Windows yet**                                                                                      |
+| Ableton device (0.1.1)            | Works in Live 12 Suite; finds StageCue on the network by itself (UDP 7418); status panel; reconnect watchdog. Installers: `.pkg` (contents and install script tested on the Mac, not yet through Installer.app on another Mac) and `.exe` (**not yet run on Windows**)       |
+| NDI to ProPresenter               | Band shows in ProPresenter 7 on the MacBook (owner's screenshot, 21 November). Delay against Ableton not measured yet                                                                                                                                                        |
+| Lag over Wi-Fi                    | Fixed and measured with `pnpm netlab` (technical-design.md §11.2): worst case 1 s before, 15 ms after; dropouts no longer freeze the band. Not yet repeated on a real two-computer network                                                                                   |
+| TV or screen without ProPresenter | Built; tested in headless Edge and Safari on a Mac. Not yet on a real TV or AirPlay                                                                                                                                                                                          |
+| Releases and website              | Public repo **nyator/stagecue-site**: the website (https://nyator.github.io/stagecue-site/, Next.js, deploys on push to `main`) and the installers in its Releases. The app's update check reads that repo. The code stays private in nyator/stageCue                        |
+| Pairing, code signing             | Not started                                                                                                                                                                                                                                                                  |
+| Logic Pro                         | Open question (no known way to read marker names)                                                                                                                                                                                                                            |
+
+**Decided by the owner:** the media team installs an app and never runs code; StageCue runs on the ProPresenter computer and Ableton on the stage computer with only the device; the band shows little most of the time (singers' feedback), but the count must come early enough to get ready; downloads live on the website, the code stays private.
+
+## Releasing a version
+
+How 0.1.2 to 0.1.4 were released. Ask the owner before publishing.
+
+1. Bump `apps/desktop/package.json` (and `integrations/ableton/package.json` if the device changed). `pnpm check`, merge to `master`, tag `vX.Y.Z`, push both.
+2. **Mac app:** `unset ELECTRON_RUN_AS_NODE; pnpm build`, then in `apps/desktop`: `npx electron-builder --mac --arm64 -c.directories.output=release/X.Y.Z`. Use a versioned folder: the owner may be running StageCue from `release/mac-arm64`.
+3. **Device installers** (only if the device changed): `pnpm --filter @stagecue/ableton build:installers`.
+4. **Windows app:** on the PC, `pnpm package:win`.
+5. **Publish** on nyator/stagecue-site: `gh release create vX.Y.Z --repo nyator/stagecue-site --target main --draft` with the small files; upload the 140 MB `.dmg` with `curl` to `uploads.github.com/repos/nyator/stagecue-site/releases/<id>/assets?name=…` (`gh release upload` stalled on it and cannot find drafts by tag); then publish with `gh api -X PATCH …/releases/<id> -F draft=false -f make_latest=true`. Check downloads work without signing in.
+6. **File names matter:** the app's update check and the website's Download page pick the app as the `.dmg` (`arm64` in the name for Apple silicon) or `.exe` without "Ableton" in the name, and the device as `StageCue-Ableton-<version>.pkg` / `.exe`.
+7. **If the band changed:** the website keeps copies of `packages/display-ui/src/{Band.tsx,timing.ts}` and `packages/arrangement/src/{cue.ts,model.ts}` in its `src/app-ui` (only import paths differ). Copy them, `npm run check && npm run build`, push `main`.
+8. Release notes and commits: plain words for volunteers, and no AI attribution.
 
 ## Next steps, in order
 
-1. **One-file Ableton device** (needs Max, so on the Mac).
-   - Try **Freeze Device** in Max on `StageCue.amxd` so both scripts and `package.json` are embedded. Cycling '74 documents bundling Node for Max code in devices, but a forum report says a frozen `node.script` could not find its file after unfreezing; our device has no `node_modules`, which avoids that case. Test: freeze, save, delete the loose `.js` files, load the device in Live on a fresh set, confirm it connects. If freezing works, have `build-device.ts` (or a documented one-step Max action) produce the frozen file, and ship only that.
-   - If freezing `node.script` fails: consider `v8.codebox` (code embedded in the patcher) for the Live Object Model part, and keep looking for an embedded option for the network part.
-   - **No address to type:** the engine announces itself on the local network (UDP broadcast with Node's `dgram`, or Bonjour/mDNS `_stagecue._tcp`), and the device connects to the first StageCue it hears, with the typed address kept as an override. Keep it to the local network; never follow an address from outside it.
-   - Setup page: one button, "Save the StageCue device", producing one file; update README "Connecting Ableton".
-2. **Mac app for the media team** (technical-design.md §10): electron-builder (or electron-forge) `.dmg` for macOS (arm64 and x64), the engine started inside the app (no separate process to run), the NDI module prebuilt and unpacked from the asar, the TV page built in, data in the user's Application Support folder. Code signing and notarization so macOS opens it without warnings (needs an Apple Developer account). Windows installer after.
-3. **NDI in ProPresenter** (technical-design.md §6.4): add the `StageCue` source in ProPresenter 7, alpha on straight (the default), layer it over lyrics, match **Style → Output size**, measure the delay against Ableton, and use **Show cues early** to cancel it.
-4. **Sunday trial at church:** run StageCue on the ProPresenter computer, follow the README checklist at soundcheck, keep **Hide band** as the fallback; record what happened in technical-design.md.
-5. **Finish the device test plan** (technical-design.md §7.2), in particular **confirm Ableton positions are quarter notes** with a 6/8 song: the countdown depends on it.
-6. **Pairing** (technical-design.md §11): the engine has no sign-in. Cheap first steps: refuse WebSocket connections from other websites (Origin check) and cap connections per address.
-7. Then: the Logic decision (§8).
+1. **Windows PC:** `pnpm package:win` for 0.1.4, install it, check NDI, the engine and the update banner, then add the `.exe` to the v0.1.4 release on nyator/stagecue-site and delete the old "StageCue 0.1.0" draft there. Run `StageCue-Ableton-0.1.1.exe` (from the release) and check it finds the User Library.
+2. **Real Wi-Fi test:** Mac with Ableton plus the PC (or the TV page on a phone), with deliberate Wi-Fi drops; compare with technical-design.md §11.2.
+3. **ProPresenter delay:** measure the band against Ableton's audio and set Style › Show cues early.
+4. **Sunday trial at church:** StageCue on the ProPresenter computer, README checklist at soundcheck, Hide band as the fallback; record what happened in technical-design.md.
+5. **Open question for the owner:** NEXT shows 8 bars before a change, so in an 8-bar section it shows the whole time. Since the 4, 3, 2, 1 now starts 2 bars early, 4 bars may be the better default. Ask before changing.
+6. **Device test plan** (technical-design.md §7.2), in particular confirm Ableton positions are quarter notes with a 6/8 song.
+7. **Code signing** (Apple Developer ID, $99 a year): removes "Open Anyway" and allows updates that install themselves.
+8. **Pairing** (technical-design.md §11): refuse WebSocket connections from other websites (Origin check), cap connections per address.
+9. Later: a single-file device (Max's Freeze), Intel Mac build, the Logic decision (§8).
 
 ## Commands
 
@@ -67,6 +84,7 @@ Work continues on the MacBook, which has Ableton Live 12 Suite, Max 9 and ProPre
 | `pnpm --filter @stagecue/ableton build:device`        | Regenerates `StageCue.amxd` from `integrations/ableton/src/build-device.ts`                                                                                    |
 | `pnpm --filter @stagecue/ableton build:installers`    | Builds `StageCue-Ableton-<version>.pkg` (macOS) and `.exe` (Windows, needs NSIS) into `integrations/ableton/release/`                                          |
 | `pnpm check`                                          | Typecheck, lint, tests, format check. Must pass before calling work done                                                                                       |
+| `pnpm package:mac` / `pnpm package:win`               | Builds the installer for this computer: `.dmg` on the Mac, `.exe` on Windows (see Releasing a version)                                                         |
 | `pnpm build`                                          | Builds the app                                                                                                                                                 |
 | `STAGECUE_OUTPUT_SNAPSHOT=frame.png pnpm dev:desktop` | Saves one output frame with transparency                                                                                                                       |
 | `STAGECUE_ENGINE_HOST=127.0.0.1 pnpm dev:engine`      | Engine for this computer only                                                                                                                                  |
@@ -79,7 +97,7 @@ Work continues on the MacBook, which has Ableton Live 12 Suite, Max 9 and ProPre
 | Messages, methods, validation                       | `packages/event-protocol/src/messages.ts`, `methods.ts`                                                                                                             |
 | Live state, hide band, disconnect behaviour         | `apps/engine/src/live/live-session.ts`                                                                                                                              |
 | Server, roles, heartbeat                            | `apps/engine/src/server/engine-server.ts`                                                                                                                           |
-| The band's look                                     | `apps/desktop/src/renderer/src/features/display/Band.tsx`                                                                                                           |
+| The band's look                                     | `packages/display-ui/src/Band.tsx` (+ `timing.ts`: when NEXT and the 4, 3, 2, 1 show)                                                                               |
 | App screens                                         | `apps/desktop/src/renderer/src/features/{live,style,setup}`                                                                                                         |
 | The app's look (header strip, monitor, lamps, logo) | `apps/desktop/DESIGN.md`, `ui/logo.tsx`, `ui/page.tsx`, `ui/segmented.tsx`, `features/display/Monitor.tsx` (`Monitor`, `MonitorColumns`), `features/setup/lamps.ts` |
 | Bar and beat for any time signature                 | `features/live/position.ts` (+ `position.test.ts`)                                                                                                                  |
@@ -95,6 +113,12 @@ Work continues on the MacBook, which has Ableton Live 12 Suite, Max 9 and ProPre
 | Setup page (signal path, lamps, verdict)            | `features/setup/signal.ts` (rules, tested), `SignalPath.tsx`, `panels.tsx`; design notes in `apps/desktop/DESIGN.md`                                                |
 | Engine connection used by the app and the TV page   | `packages/engine-client/src/engine-connection.ts`                                                                                                                   |
 | The device's layout                                 | `integrations/ableton/src/build-device.ts`, then rebuild the `.amxd`                                                                                                |
+| Late messages over Wi-Fi, coasting after a drop     | `packages/arrangement/src/arrival.ts` (`ArrivalClock`, `COAST_MS`), used by `apps/engine/src/server/engine-server.ts` and `packages/engine-client`                  |
+| Measuring lag under poor Wi-Fi                      | `integrations/netlab` (`pnpm netlab`)                                                                                                                               |
+| Update banner (checks the website's releases)       | `apps/desktop/src/main/updates.ts`, `features/setup/UpdateBanner.tsx`                                                                                               |
+| Installing the device from the app                  | `apps/desktop/src/main/ableton-device.ts`                                                                                                                           |
+| Device installers (`.pkg`, `.exe`)                  | `integrations/ableton/installer`                                                                                                                                    |
+| Website (separate public repo)                      | nyator/stagecue-site; its `src/app-ui` copies the band code                                                                                                         |
 | Reference bridge for testing                        | `integrations/simulator/src/index.ts`                                                                                                                               |
 
 ## Conventions
@@ -136,3 +160,7 @@ Work continues on the MacBook, which has Ableton Live 12 Suite, Max 9 and ProPre
 - **Two StageCue NDI sources:** with the MacBook and the PC both running StageCue on one network, a receiver that takes the first `StageCue` source may measure the other computer. Pick the source by computer name.
 - **1080p is 30 fps on Windows, 60 on macOS** (`HD_RATE` in `output.ts`): this PC could not hand NDI more than about 30 frames a second, and aiming for 60 only added repeated frames.
 - **Testing NDI without ProPresenter:** NDI Studio Monitor (NDI Tools), or a script using the module's `find` and `receive`; skip `receive.video()` errors with code `4140` (non-video data arrives first).
+- **A running dev app keeps the old saved style after a new setting is added:** the off-screen NDI page fetched the style before the setting existed, so its value was missing and the progress bar vanished in ProPresenter (21 November 2026). Restart `pnpm dev` after changing `displaySettingsSchema`. Installed apps are not affected.
+- **`ELECTRON_RUN_AS_NODE=1` also silences the packaged app:** launched from such a shell, `StageCue.app/Contents/MacOS/StageCue` exits at once with no output. Unset it first.
+- **pnpm passes a literal `--` to scripts:** `pnpm simulate --tempo 120` used to crash on it; the simulator and netlab now ignore it. Do the same in any new script that uses `parseArgs`.
+- **Claude Code's sandbox blocks NDI and local discovery:** NDI senders fail to start ("Failed to create NDI sender") and receivers find nothing. Run `pnpm dev` and NDI tests outside the sandbox.

@@ -10,6 +10,7 @@
     "build": "electron-vite build",
     "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
     "package:mac": "electron-builder --mac --arm64",
+    "package:win": "electron-builder --win nsis --x64",
     "icon": "electron scripts/render-icon.mjs"
   },
   "dependencies": {
